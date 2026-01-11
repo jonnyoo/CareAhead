@@ -19,6 +19,11 @@ struct PresageView: View {
     @State private var capturedHeartRate: Double = 0.0
     @State private var capturedBreathingRate: Double = 0.0
 
+    // Live trace (captured during scan, displayed on Insights)
+    @State private var scanStartTime: Date?
+    @State private var scanHeartRateSeries: [LiveMetricPoint] = []
+    @State private var scanBreathingRateSeries: [LiveMetricPoint] = []
+
     @State private var didSaveVitalSign = false
     
     // Face Detection State
@@ -117,7 +122,10 @@ struct PresageView: View {
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {
             resetScan()
         }) {
-            GeminiInsightScreen()
+            GeminiInsightScreen(
+                heartRateSeries: scanHeartRateSeries,
+                breathingRateSeries: scanBreathingRateSeries
+            )
         }
         
         // MARK: - 4. Live Data Loop
@@ -129,9 +137,11 @@ struct PresageView: View {
             if isScanning, let metrics = newBuffer {
                 if let lastPulse = metrics.pulse.rate.last, lastPulse.value > 0 {
                     capturedHeartRate = Double(lastPulse.value)
+                    appendLiveSample(value: capturedHeartRate, series: &scanHeartRateSeries)
                 }
                 if let lastBreath = metrics.breathing.rate.last, lastBreath.value > 0 {
                     capturedBreathingRate = Double(lastBreath.value)
+                    appendLiveSample(value: capturedBreathingRate, series: &scanBreathingRateSeries)
                 }
             }
         }
@@ -160,6 +170,10 @@ struct PresageView: View {
         capturedBreathingRate = 0
         timeLeft = 20
         isScanning = true
+
+        scanStartTime = Date()
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
         
         // Note: We don't need to call startRecording() here because it's already running!
         // We just start the countdown.
@@ -223,9 +237,25 @@ struct PresageView: View {
         timeLeft = 20
         isScanning = false
 
+        scanStartTime = nil
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
+
         // Turn the engine back on for the next preview
         processor.startProcessing()
         processor.startRecording()
+    }
+
+    private func appendLiveSample(value: Double, series: inout [LiveMetricPoint]) {
+        guard let scanStartTime else { return }
+        let elapsed = Date().timeIntervalSince(scanStartTime)
+        series.append(.init(t: elapsed, value: value))
+
+        // Keep only the last ~24 seconds.
+        let cutoff = max(0, elapsed - 24)
+        if let firstToKeep = series.firstIndex(where: { $0.t >= cutoff }), firstToKeep > 0 {
+            series.removeFirst(firstToKeep)
+        }
     }
 }
 

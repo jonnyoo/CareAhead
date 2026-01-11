@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct CareAheadApp: App {
+    @StateObject private var nav = AppNavigation()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             VitalSign.self,
@@ -26,6 +28,7 @@ struct CareAheadApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(nav)
         }
         .modelContainer(sharedModelContainer)
     }

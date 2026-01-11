@@ -2,14 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var selectedTab: Int = 0
+    @EnvironmentObject private var nav: AppNavigation
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         ZStack {
             // Current Page View
             Group {
-                switch selectedTab {
+                switch nav.selectedTab {
                 case 0:
                     HomeView()
                 case 1:
@@ -28,7 +28,7 @@ struct ContentView: View {
             // Floating Tab Bar
             VStack {
                 Spacer()
-                TabBarView(selectedTab: $selectedTab)
+                TabBarView(selectedTab: $nav.selectedTab)
             }
         }
         .task {
@@ -39,4 +39,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(AppNavigation())
 }

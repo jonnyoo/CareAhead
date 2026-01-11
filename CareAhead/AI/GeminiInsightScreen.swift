@@ -1,39 +1,53 @@
 import SwiftUI
-import SwiftData
 import Charts
 
 struct GeminiInsightScreen: View {
     @Environment(\.dismiss) private var dismiss
 
-    @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
+    @EnvironmentObject private var nav: AppNavigation
+
+    let heartRateSeries: [LiveMetricPoint]
+    let breathingRateSeries: [LiveMetricPoint]
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: Color(red: 0.44, green: 0.86, blue: 0.7).opacity(0.22), location: 0.0),
-                    .init(color: Color(red: 0.70, green: 0.73, blue: 1.0).opacity(0.20), location: 0.45),
-                    .init(color: Color("backgroundColor"), location: 1.0)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color("backgroundColor")
+                .ignoresSafeArea()
+
+            Rectangle()
+                .foregroundColor(.clear)
+                .frame(maxWidth: .infinity)
+                .frame(height: 237)
+                .background(
+                    LinearGradient(
+                        stops: [
+                            Gradient.Stop(color: Color(red: 0.44, green: 0.86, blue: 0.7), location: 0.10),
+                            Gradient.Stop(color: Color(red: 0.7, green: 0.73, blue: 1).opacity(0.9), location: 0.47),
+                            Gradient.Stop(color: Color(red: 1, green: 0.74, blue: 0.29).opacity(0.55), location: 0.68),
+                            Gradient.Stop(color: Color(red: 1, green: 0.77, blue: 0.25).opacity(0), location: 0.84),
+                        ],
+                        startPoint: UnitPoint(x: 0.5, y: 0),
+                        endPoint: UnitPoint(x: 0.63, y: 0.96)
+                    )
+                    .opacity(0.3)
+                )
+                .ignoresSafeArea(edges: .top)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 18) {
                     header
-                        .padding(.top, 18)
+                        .padding(.top, 20)
 
-                    trendCharts
-                        .padding(.top, 6)
+                    liveScanCharts
 
-                    GeminiInsightView(autoGenerateOnAppear: true, isFullScreen: true)
+                    insightCard {
+                        GeminiInsightView(autoGenerateOnAppear: true, isFullScreen: true)
+                    }
 
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 90)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 44)
+                .padding(.horizontal, 24)
+                .padding(.top, 40)
             }
         }
     }
@@ -43,12 +57,13 @@ struct GeminiInsightScreen: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Today’s Insights")
                     .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(Color(red: 0.30, green: 0.92, blue: 0.74))
+                    .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.35))
             }
 
             Spacer()
 
             Button {
+                nav.selectedTab = 3
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
@@ -61,224 +76,127 @@ struct GeminiInsightScreen: View {
         }
     }
 
-    private var trendCharts: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your recent trends")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.22).opacity(0.9))
+    private var liveScanCharts: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Live scan")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
 
-            insightChartCard(
-                title: "Heart Rate",
-                subtitle: "Last 7 days",
-                tint: Color(red: 0.36, green: 0.78, blue: 0.7)
-            ) {
-                Chart {
-                    ForEach(heartRatePoints) { point in
-                        if let bpm = point.value {
-                            LineMark(
-                                x: .value("Day", point.dayLabel),
-                                y: .value("BPM", bpm)
-                            )
-                            .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                            .lineStyle(StrokeStyle(lineWidth: 3))
-                            .symbol(Circle().strokeBorder(lineWidth: 2))
-                            .symbolSize(48)
-                        }
-                    }
+            if heartRateSeries.isEmpty && breathingRateSeries.isEmpty {
+                insightCard {
+                    Text("No live trace recorded. Run the video test to capture the live chart.")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color(red: 0.45, green: 0.45, blue: 0.65))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 6)
                 }
-                .frame(height: 120)
-                .chartXScale(domain: xDomain)
-                .chartYScale(domain: 0...120)
-                .chartXAxis {
-                    AxisMarks(values: xDomain) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.55))
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { _ in
-                        AxisGridLine()
-                            .foregroundStyle(Color.black.opacity(0.10))
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.62))
-                    }
-                }
-            }
+            } else {
+                insightCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        liveLineChart(
+                            title: "Heart Rate",
+                            unit: "bpm",
+                            tint: Color(red: 0.36, green: 0.78, blue: 0.7),
+                            series: heartRateSeries,
+                            yDomain: 40...140
+                        )
 
-            insightChartCard(
-                title: "Breathing Rate",
-                subtitle: "Last 7 days",
-                tint: Color(red: 0.70, green: 0.73, blue: 1.0)
-            ) {
-                Chart {
-                    ForEach(breathingRatePoints) { point in
-                        if let rpm = point.value {
-                            LineMark(
-                                x: .value("Day", point.dayLabel),
-                                y: .value("RPM", rpm)
-                            )
-                            .foregroundStyle(Color(red: 0.70, green: 0.73, blue: 1.0))
-                            .lineStyle(StrokeStyle(lineWidth: 3))
-                            .symbol(Circle().strokeBorder(lineWidth: 2))
-                            .symbolSize(48)
-                        }
-                    }
-                }
-                .frame(height: 120)
-                .chartXScale(domain: xDomain)
-                .chartYScale(domain: 8...24)
-                .chartXAxis {
-                    AxisMarks(values: xDomain) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.55))
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { _ in
-                        AxisGridLine()
-                            .foregroundStyle(Color.black.opacity(0.10))
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.62))
-                    }
-                }
-            }
+                        Divider().opacity(0.2)
 
-            insightChartCard(
-                title: "Sleep",
-                subtitle: "Last 7 days",
-                tint: Color(red: 0.36, green: 0.78, blue: 0.7)
-            ) {
-                Chart {
-                    ForEach(sleepPoints) { point in
-                        if let hours = point.value {
-                            BarMark(
-                                x: .value("Day", point.dayLabel),
-                                y: .value("Hours", hours)
-                            )
-                            .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                            .cornerRadius(6)
-                        }
-                    }
-                }
-                .frame(height: 120)
-                .chartXScale(domain: xDomain)
-                .chartYScale(domain: 0...10)
-                .chartXAxis {
-                    AxisMarks(values: xDomain) { _ in
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.55))
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { _ in
-                        AxisGridLine()
-                            .foregroundStyle(Color.black.opacity(0.10))
-                        AxisValueLabel()
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.62))
+                        liveLineChart(
+                            title: "Breathing Rate",
+                            unit: "rpm",
+                            tint: Color(red: 0.7, green: 0.73, blue: 1),
+                            series: breathingRateSeries,
+                            yDomain: 8...30
+                        )
                     }
                 }
             }
         }
     }
 
-    private func insightChartCard<Content: View>(
+    private func insightCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
+
+            content()
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func liveLineChart(
         title: String,
-        subtitle: String,
+        unit: String,
         tint: Color,
-        @ViewBuilder content: () -> Content
+        series: [LiveMetricPoint],
+        yDomain: ClosedRange<Double>
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.88))
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.45))
-                }
+                Text(title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
 
                 Spacer()
 
-                Circle()
-                    .fill(tint.opacity(0.9))
-                    .frame(width: 10, height: 10)
+                if let last = series.last {
+                    Text("\(Int(last.value.rounded())) \(unit)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
+                }
             }
 
-            content()
-        }
-        .padding(14)
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
-        )
-    }
+            Chart {
+                ForEach(series) { point in
+                    LineMark(
+                        x: .value("t", point.t),
+                        y: .value("value", point.value)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(tint)
 
-    private var xDomain: [String] {
-        TrendAxis.lastNDays(count: 7).map { $0.label }
-    }
-
-    private var heartRatePoints: [TrendPoint<Int>] {
-        let days = TrendAxis.lastNDays(count: 7)
-        let byDateKey = latestVitalSignByDateKey(vitalSigns)
-        return days.map { day in
-            let key = dateKey(day.dayStart)
-            let vital = byDateKey[key]
-            return TrendPoint(dayLabel: day.label, value: vital?.heartRate)
-        }
-    }
-
-    private var breathingRatePoints: [TrendPoint<Double>] {
-        let days = TrendAxis.lastNDays(count: 7)
-        let byDateKey = latestVitalSignByDateKey(vitalSigns)
-        return days.map { day in
-            let key = dateKey(day.dayStart)
-            let vital = byDateKey[key]
-            return TrendPoint(dayLabel: day.label, value: vital.map { Double($0.breathingRate) })
-        }
-    }
-
-    private var sleepPoints: [TrendPoint<Double>] {
-        let days = TrendAxis.lastNDays(count: 7)
-        let byDateKey = latestVitalSignByDateKey(vitalSigns)
-        return days.map { day in
-            let key = dateKey(day.dayStart)
-            let vital = byDateKey[key]
-            return TrendPoint(dayLabel: day.label, value: vital?.sleepHours)
-        }
-    }
-
-    private func latestVitalSignByDateKey(_ vitalSigns: [VitalSign]) -> [String: VitalSign] {
-        // `vitalSigns` is already sorted newest-first; first per day wins.
-        var result: [String: VitalSign] = [:]
-        for vital in vitalSigns {
-            let key = dateKey(vital.timestamp)
-            if result[key] == nil {
-                result[key] = vital
+                    AreaMark(
+                        x: .value("t", point.t),
+                        y: .value("value", point.value)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [tint.opacity(0.28), tint.opacity(0.02)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+            }
+            .frame(height: 140)
+            .chartYScale(domain: yDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                    AxisValueLabel()
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine()
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.12))
+                    AxisValueLabel()
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.62))
+                }
             }
         }
-        return result
-    }
-
-    private func dateKey(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: date)
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: start)
     }
 }
 
 #Preview {
-    GeminiInsightScreen()
+    GeminiInsightScreen(heartRateSeries: [], breathingRateSeries: [])
+        .environmentObject(AppNavigation())
 }
