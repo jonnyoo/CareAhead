@@ -27,6 +27,7 @@ struct PresageView: View {
     @State private var smartSpectraSettings: SmartSpectraSettings = .default
     @State private var isShowingSmartSpectraSettings: Bool = false
     @State private var smartSpectraSettingsError: String = ""
+    @State private var didAutoPromptForKey: Bool = false
     
     var body: some View {
         ZStack {
@@ -147,6 +148,12 @@ struct PresageView: View {
         .onAppear {
             loadSmartSpectraSettings()
             setupSDKIfPossible()
+
+            // If the key isn't present yet, prompt once.
+            if !smartSpectraSettings.isValid, !didAutoPromptForKey {
+                didAutoPromptForKey = true
+                isShowingSmartSpectraSettings = true
+            }
         }
         .onDisappear { stopCameraCompletely() }
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {

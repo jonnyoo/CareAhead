@@ -32,6 +32,8 @@
 		E70A153B2F133B9700197B0B /* CareAheadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CareAheadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E70A15452F133B9700197B0B /* CareAheadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CareAheadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F60718293A4B5C /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -93,6 +95,9 @@
 				E70A15482F133B9700197B0B /* CareAheadUITests */,
 				47BA6E822F134EFA00565AB0 /* Frameworks */,
 				E70A152D2F133B9300197B0B /* Products */,
+				A1B2C3D4E5F60718293A4B5C /* Secrets.xcconfig */,
+				A1B2C3D4E5F60718293A4B5D /* Secrets.example.xcconfig */,
+				A1B2C3D4E5F60718293A4B5E /* .gitignore */,
 			);
 			sourceTree = "<group>";
 		};
