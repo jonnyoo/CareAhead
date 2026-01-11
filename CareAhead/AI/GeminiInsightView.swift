@@ -33,6 +33,7 @@ final class GeminiInsightViewModel: ObservableObject {
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
                 let client = GeminiClient(settings: self.settings)
+
                 let text = try await client.generateText(prompt: prompt)
                 self.insightText = text
                 self.errorText = ""
@@ -159,10 +160,6 @@ private struct GeminiSettingsSheet: View {
             Form {
                 Section(header: Text("Gemini API")) {
                     SecureField("API Key", text: $settings.apiKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    TextField("Model", text: $settings.model)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 

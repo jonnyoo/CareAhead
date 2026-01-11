@@ -24,6 +24,8 @@ struct GeminiClient {
     let settings: GeminiSettings
     let session: URLSession
 
+    private let model: String = "gemini-2.5-flash"
+
     init(settings: GeminiSettings, session: URLSession = .shared) {
         self.settings = settings
         self.session = session
@@ -34,7 +36,7 @@ struct GeminiClient {
 
         // Google AI Studio / Generative Language API
         // https://ai.google.dev/api/generate-content
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(settings.model):generateContent?key=\(settings.apiKey)") else {
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(settings.apiKey)") else {
             throw GeminiError.invalidURL
         }
 
@@ -46,7 +48,7 @@ struct GeminiClient {
             contents: [
                 GeminiContent(parts: [GeminiPart(text: prompt)])
             ],
-            generationConfig: GeminiGenerationConfig(temperature: 0.4, maxOutputTokens: 512)
+            generationConfig: GeminiGenerationConfig(temperature: 0.4, maxOutputTokens: 768)
         )
 
         let encoder = JSONEncoder()
