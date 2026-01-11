@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct SharedView: View {
     var body: some View {
@@ -32,19 +33,21 @@ struct SharingView: View {
 
     // Mock data using asset names
     private let updates: [UpdateCard] = [
-        .init(avatarAsset: "smallAmy", name: "Amy Z.", time: "yesterday",
+        .init(avatarAsset: "Amy", name: "Amy Z.", time: "yesterday",
               message: "Heart rate has been\nhigher than usual for\nthe past week"),
-        .init(avatarAsset: "smallTom", name: "Tom Z.", time: "yesterday",
+        .init(avatarAsset: "Tom", name: "Tom Z.", time: "yesterday",
               message: "Heart rate has been\nhigher than usual for\nthe past week")
     ]
 
     private let contacts: [ShareContact] = [
         .init(avatarAsset: "Amy", name: "Amy Z.", relation: "Mother", moodAsset: "greenHappy"),
-        .init(avatarAsset: "bigTom", name: "Tom Z.", relation: "Father", moodAsset: "sadface"),
-        .init(avatarAsset: "raymond", name: "Raymond Z.", relation: "Brother", moodAsset: "neutralFace")
+        .init(avatarAsset: "Tom", name: "Tom Z.", relation: "Father", moodAsset: "sadface"),
+        .init(avatarAsset: "Raymond", name: "Raymond Z.", relation: "Brother", moodAsset: "neutralFace")
     ]
 
     @State private var selectedTab: Tab = .sharing
+    @State private var selectedContact: ShareContact?
+    @State private var showSheet = false
 
     enum Tab: CaseIterable {
         case home, sharing, vitals, explore
@@ -78,6 +81,7 @@ struct SharingView: View {
                         }
                     }
                     .padding(.vertical, 2)
+                    .padding(.leading, 23)
                 }
                 .frame(height: 170)
                 .padding(.horizontal, -22)
@@ -85,16 +89,25 @@ struct SharingView: View {
                 // Contacts
                 VStack(spacing: 14) {
                     ForEach(contacts) { contact in
-                        ContactRowView(contact: contact)
+                        Button(action: {
+                            selectedContact = contact
+                            showSheet = true
+                        }) {
+                            ContactRowView(contact: contact)
+                        }
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                BottomTabBar(selected: $selectedTab)
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 18)
+        }
+        .sheet(isPresented: $showSheet) {
+            if let _ = selectedContact {
+                SharedHeartRateDetailView(points: mockHeartRatePoints, xDomain: mockXDomain)
+            }
         }
     }
 
@@ -108,6 +121,34 @@ struct SharingView: View {
             startPoint: .top,
             endPoint: .bottom
         )
+    }
+
+    private var mockXDomain: [String] {
+        ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"]
+    }
+
+    private var mockHeartRatePoints: [SharedTrendPoint<Int>] {
+        [
+            SharedTrendPoint(dayLabel: "Mon", value: 72),
+            SharedTrendPoint(dayLabel: "Tue", value: 75),
+            SharedTrendPoint(dayLabel: "Wed", value: 68),
+            SharedTrendPoint(dayLabel: "Thu", value: 80),
+            SharedTrendPoint(dayLabel: "Fri", value: 76),
+            SharedTrendPoint(dayLabel: "Sat", value: 74),
+            SharedTrendPoint(dayLabel: "Today", value: 78)
+        ]
+    }
+
+    private var mockBreathingRatePoints: [SharedTrendPoint<Double>] {
+        [
+            SharedTrendPoint(dayLabel: "Mon", value: 16.0),
+            SharedTrendPoint(dayLabel: "Tue", value: 15.5),
+            SharedTrendPoint(dayLabel: "Wed", value: 17.0),
+            SharedTrendPoint(dayLabel: "Thu", value: 14.8),
+            SharedTrendPoint(dayLabel: "Fri", value: 16.2),
+            SharedTrendPoint(dayLabel: "Sat", value: 15.8),
+            SharedTrendPoint(dayLabel: "Today", value: 16.5)
+        ]
     }
 }
 
@@ -193,8 +234,9 @@ private struct ContactRowView: View {
             Image(contact.moodAsset)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 110, height: 110)
-                .offset(y: 10)
+                .frame(width: 90, height: 90)
+                .offset(y: 20)
+                .offset(x: 15)
 
             HStack(spacing: 14) {
                 AssetIcon(name: contact.avatarAsset)
@@ -219,56 +261,15 @@ private struct ContactRowView: View {
     }
 }
 
-private struct BottomTabBar: View {
-    @Binding var selected: SharingView.Tab
-
-    var body: some View {
-        HStack(spacing: 26) {
-            tab(.home)
-            tab(.sharing)
-            tab(.vitals)
-            tab(.explore)
-        }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 22)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.92))
-                .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 12)
-        )
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
-    }
-
-    private func tab(_ tab: SharingView.Tab) -> some View {
-        Button {
-            selected = tab
-        } label: {
-            Image(systemName: tab.sf)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(
-                    selected == tab
-                    ? Color("AccentColor")
-                    : Color("AccentColor").opacity(0.55)
-                )
-                .frame(width: 34, height: 34)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Asset helper
-
-/// If your SVGs are in Assets.xcassets, `Image(name)` will work.
-/// (If it *doesn't* render: you either need to import them as PDF vectors,
-/// or use an SVG renderer like SVGKit/SwiftSVG.)
 private struct AssetIcon: View {
     let name: String
 
     var body: some View {
         Image(name)
             .resizable()
-            .scaledToFit()
+            .ignoresSafeArea()
+            .scaledToFill()
+            .clipShape(Circle())
             .accessibilityLabel(Text(name))
     }
 }
@@ -287,4 +288,158 @@ private extension Color {
 #Preview {
     SharingView()
         .preferredColorScheme(.light)
+}
+
+// MARK: - Detail Views
+
+private struct SharedHeartRateDetailView: View {
+    @Environment(\.dismiss) var dismiss
+
+    let points: [SharedTrendPoint<Int>]
+    let xDomain: [String]
+    
+    var body: some View {
+        ZStack {
+            Color.white
+                .ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Heart Rate")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                        .padding(.top, 30)
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                
+                VStack(spacing: 16) {
+                    Chart {
+                        ForEach(points) { point in
+                            if let bpm = point.value {
+                                LineMark(
+                                    x: .value("Day", point.dayLabel),
+                                    y: .value("BPM", bpm)
+                                )
+                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                .lineStyle(StrokeStyle(lineWidth: 3))
+                                .symbol(Circle().strokeBorder(lineWidth: 2))
+                                .symbolSize(60)
+                            }
+                        }
+                    }
+                    .frame(height: 250)
+                    .chartXScale(domain: xDomain)
+                    .chartYScale(domain: 0...120)
+                    .chartXAxis {
+                        AxisMarks(values: xDomain) { _ in
+                            AxisValueLabel()
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { _ in
+                            AxisGridLine()
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                            AxisValueLabel()
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                .padding(.vertical, 24)
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+private struct SharedBreathingRateDetailView: View {
+    @Environment(\.dismiss) var dismiss
+
+    let points: [SharedTrendPoint<Double>]
+    let xDomain: [String]
+    
+    var body: some View {
+        ZStack {
+            Color.white
+                .ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Breathing Rate")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                
+                VStack(spacing: 16) {
+                    Chart {
+                        ForEach(points) { point in
+                            if let rpm = point.value {
+                                LineMark(
+                                    x: .value("Day", point.dayLabel),
+                                    y: .value("RPM", rpm)
+                                )
+                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                .lineStyle(StrokeStyle(lineWidth: 3))
+                                .symbol(Circle().strokeBorder(lineWidth: 2))
+                                .symbolSize(60)
+                            }
+                        }
+                    }
+                    .frame(height: 250)
+                    .chartXScale(domain: xDomain)
+                    .chartYScale(domain: 8...24)
+                    .chartXAxis {
+                        AxisMarks(values: xDomain) { _ in
+                            AxisValueLabel()
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { _ in
+                            AxisGridLine()
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                            AxisValueLabel()
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                .padding(.vertical, 24)
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+private struct SharedTrendPoint<Value>: Identifiable {
+    let dayLabel: String
+    let value: Value?
+
+    var id: String { dayLabel }
 }

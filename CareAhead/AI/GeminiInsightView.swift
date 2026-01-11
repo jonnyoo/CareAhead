@@ -7,38 +7,57 @@ final class GeminiInsightViewModel: ObservableObject {
     @Published var insightText: String = ""
     @Published var errorText: String = ""
     @Published var isBusy: Bool = false
+    @Published var isRevealing: Bool = false
 
-    @Published var settings: GeminiSettings = .default
-    @Published var isShowingSettings: Bool = false
+    let settings: GeminiSettings = .default
 
-    func loadSettings() {
-        do {
-            settings = try GeminiSettingsStore.load()
-        } catch {
-            settings = .default
-        }
-    }
-
-    func saveSettings() {
-        do {
-            try GeminiSettingsStore.save(settings)
-        } catch {
-            errorText = error.localizedDescription
-        }
-    }
+    private var revealTask: Task<Void, Never>?
 
     func generate(today: VitalSign, history: [VitalSign]) {
         Task {
             await self.runBusy {
+                self.revealTask?.cancel()
+                self.isRevealing = false
+                self.insightText = ""
+                self.errorText = ""
+
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
                 let client = GeminiClient(settings: self.settings)
 
                 let text = try await client.generateText(prompt: prompt)
-                self.insightText = text
-                self.errorText = ""
+
+                // Smooth reveal: simulate text fading/typing in.
+                self.isRevealing = true
+                self.revealTask = Task { [weak self] in
+                    guard let self else { return }
+                    await self.revealText(text)
+                }
             }
         }
+    }
+
+    private func revealText(_ fullText: String) async {
+        // Reveal in chunks so it feels smooth without being too slow.
+        let scalars = Array(fullText.unicodeScalars)
+        let total = scalars.count
+
+        // Roughly finish in ~1.6s for typical responses.
+        let targetSteps = 90
+        let chunkSize = max(1, total / targetSteps)
+
+        var index = 0
+        while index < total {
+            if Task.isCancelled { return }
+            let next = min(total, index + chunkSize)
+            let slice = String(String.UnicodeScalarView(scalars[0..<next]))
+            self.insightText = slice
+            index = next
+            try? await Task.sleep(nanoseconds: 18_000_000) // ~18ms
+        }
+
+        self.insightText = fullText
+        self.isRevealing = false
     }
 
     private func runBusy(_ work: @escaping () async throws -> Void) async {
@@ -55,31 +74,35 @@ final class GeminiInsightViewModel: ObservableObject {
 }
 
 struct GeminiInsightView: View {
-    @Environment(\.modelContext) private var modelContext
-
     // Get enough data for comparisons
     @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
 
     @StateObject private var model = GeminiInsightViewModel()
 
     var autoGenerateOnAppear: Bool = false
+    var isFullScreen: Bool = false
 
     @State private var didAutoGenerate: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Today’s Insight")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+        VStack(alignment: .leading, spacing: 14) {
+            if !isFullScreen {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
 
-                Spacer()
+                    Text("Today’s Insight")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Color.black.opacity(0.88))
 
-                Button("Settings") {
-                    model.isShowingSettings = true
+                    Spacer()
+
+                    if model.isBusy {
+                        ProgressView()
+                            .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
                 }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
             }
 
             let todayVital = latestTodayVitalSign
@@ -87,12 +110,20 @@ struct GeminiInsightView: View {
                 Text("Run today’s video test to get an insight.")
                     .foregroundStyle(.secondary)
             } else {
-                Button(model.isBusy ? "Generating…" : "Generate Insight") {
-                    guard let todayVital else { return }
-                    model.generate(today: todayVital, history: historyForComparison)
+                if let todayVital {
+                    vitalsRow(todayVital)
+                        .padding(.top, 2)
+
+                    // If not auto-generating (e.g., used as a card), allow a single manual generate.
+                    if !autoGenerateOnAppear && model.insightText.isEmpty {
+                        Button(model.isBusy ? "Generating…" : "Generate Insight") {
+                            model.generate(today: todayVital, history: historyForComparison)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                        .disabled(model.isBusy)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isBusy)
             }
 
             if !model.errorText.isEmpty {
@@ -101,34 +132,65 @@ struct GeminiInsightView: View {
                     .font(.system(size: 14))
             }
 
+            if model.isBusy && model.insightText.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Generating insight…")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.78))
+                    ProgressView()
+                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
             if !model.insightText.isEmpty {
-                Text(model.insightText)
-                    .font(.system(.body, design: .default))
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Group {
+                    if let attributed = try? AttributedString(markdown: model.insightText) {
+                        Text(attributed)
+                    } else {
+                        Text(model.insightText)
+                    }
+                }
+                .textSelection(.enabled)
+                .font(.system(.body, design: .rounded))
+                .foregroundStyle(Color.black.opacity(0.88))
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .opacity(model.isRevealing ? 0.92 : 1.0)
+                .animation(.easeInOut(duration: 0.25), value: model.insightText)
             }
         }
-        .padding(16)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
+        .padding(isFullScreen ? 0 : 16)
+        .background(
+            Group {
+                if isFullScreen {
+                    Color.clear
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color.white,
+                            Color(red: 0.98, green: 0.98, blue: 1.0)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 20))
+        .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(isFullScreen ? 0 : 0.45), radius: 8, x: 0, y: 2)
         .onAppear {
-            self.model.loadSettings()
-
             if self.autoGenerateOnAppear,
                !self.didAutoGenerate,
-               self.model.settings.isValid,
                let todayVital = latestTodayVitalSign {
                 self.didAutoGenerate = true
                 self.model.generate(today: todayVital, history: self.historyForComparison)
             }
-        }
-        .sheet(isPresented: $model.isShowingSettings) {
-            GeminiSettingsSheet(settings: $model.settings, onSave: {
-                self.model.saveSettings()
-            })
         }
     }
 
@@ -147,40 +209,42 @@ struct GeminiInsightView: View {
             .prefix(60) // keep a bit extra; prompt builder will trim
             .map { $0 }
     }
-}
 
-private struct GeminiSettingsSheet: View {
-    @Environment(\.dismiss) var dismiss
+    private func vitalsRow(_ vital: VitalSign) -> some View {
+        HStack(spacing: 10) {
+            chip(title: "HR", value: "\(vital.heartRate)", unit: "bpm")
+            chip(title: "BR", value: "\(vital.breathingRate)", unit: "rpm")
 
-    @Binding var settings: GeminiSettings
-    let onSave: () -> Void
-
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Gemini API")) {
-                    SecureField("API Key", text: $settings.apiKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Text("Use a key from Google AI Studio. This key is stored in Keychain on-device.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            if let sleep = vital.sleepHours {
+                chip(title: "Sleep", value: String(format: "%.1f", sleep), unit: "h")
             }
-            .navigationTitle("Insight Settings")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        onSave()
-                        dismiss()
-                    }
-                }
+
+            Spacer()
+        }
+    }
+
+    private func chip(title: String, value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.65))
+            HStack(spacing: 4) {
+                Text(value)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                Text(unit)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.55))
             }
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(Color.white.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(red: 0.45, green: 0.48, blue: 0.75).opacity(0.18), lineWidth: 1)
+        )
     }
 }
 

@@ -2,14 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var selectedTab: Int = 0
+    @EnvironmentObject private var nav: AppNavigation
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         ZStack {
             // Current Page View
             Group {
-                switch selectedTab {
+                switch nav.selectedTab {
                 case 0:
                     HomeView()
                 case 1:
@@ -28,20 +28,16 @@ struct ContentView: View {
             // Floating Tab Bar
             VStack {
                 Spacer()
-                TabBarView(selectedTab: $selectedTab)
+                TabBarView(selectedTab: $nav.selectedTab)
             }
         }
         .task {
             try? VitalSignSeeder.seedIfNeeded(modelContext: modelContext)
-
-            // Bootstrap API keys from Info.plist (Secrets.xcconfig) into Keychain.
-            // This allows camera/insight views to start without prompting for keys.
-            _ = try? GeminiSettingsStore.load()
-            _ = try? SmartSpectraSettingsStore.load()
         }
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AppNavigation())
 }

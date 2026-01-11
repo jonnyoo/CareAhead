@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import SmartSpectraSwiftSDK
 import SwiftData
+import Combine
 
 struct PresageView: View {
     @Environment(\.modelContext) private var modelContext
@@ -18,16 +19,19 @@ struct PresageView: View {
     @State private var capturedHeartRate: Double = 0.0
     @State private var capturedBreathingRate: Double = 0.0
 
+    // Live trace (captured during scan, displayed on Insights)
+    @State private var scanStartTime: Date?
+    @State private var scanHeartRateSeries: [LiveMetricPoint] = []
+    @State private var scanBreathingRateSeries: [LiveMetricPoint] = []
+
     @State private var didSaveVitalSign = false
     
     // Face Detection State
     @State private var hasFace: Bool = false
 
-    // SmartSpectra API Key (stored securely in Keychain)
-    @State private var smartSpectraSettings: SmartSpectraSettings = .default
-    @State private var isShowingSmartSpectraSettings: Bool = false
-    @State private var smartSpectraSettingsError: String = ""
-    @State private var didAutoPromptForKey: Bool = false
+    @State private var didSetupSDK: Bool = false
+
+    private let faceTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
     
     var body: some View {
         ZStack {
@@ -52,42 +56,6 @@ struct PresageView: View {
             
             // MARK: - 2. UI Overlay
             VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        isShowingSmartSpectraSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .padding(10)
-                            .background(.black.opacity(0.45))
-                            .clipShape(Circle())
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.top, 55)
-                }
-
-                if !smartSpectraSettingsError.isEmpty {
-                    Text(smartSpectraSettingsError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                }
-
-                if !smartSpectraSettings.isValid {
-                    VStack(spacing: 8) {
-                        Text("SmartSpectra API key required")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                        Text("Tap the gear icon to add your key.")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                    .padding(.top, 12)
-                }
-
                 // Face Status Indicator (Always Visible now)
                 if !isScanning {
                     HStack {
@@ -129,7 +97,7 @@ struct PresageView: View {
                                 .frame(width: 70, height: 70)
                         }
                     }
-                    .disabled(!hasFace || !smartSpectraSettings.isValid) // Require face + API key
+                    .disabled(!hasFace) // Require face
                     .padding(.bottom, 100)
                     
                     Text(hasFace ? "Tap to Start" : "Position Face to Start")
@@ -145,26 +113,19 @@ struct PresageView: View {
                 }
             }
         }
-        .onAppear {
-            loadSmartSpectraSettings()
-            setupSDKIfPossible()
-
-            // If the key isn't present yet, prompt once.
-            if !smartSpectraSettings.isValid, !didAutoPromptForKey {
-                didAutoPromptForKey = true
-                isShowingSmartSpectraSettings = true
-            }
-        }
+        .onAppear { setupSDK() }
         .onDisappear { stopCameraCompletely() }
+        .onReceive(faceTimer) { _ in
+            // Keep the face badge responsive even if buffers are slow.
+            updateFaceStatus()
+        }
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {
             resetScan()
         }) {
-            GeminiInsightScreen()
-        }
-        .sheet(isPresented: $isShowingSmartSpectraSettings, onDismiss: {
-            saveSmartSpectraSettingsAndRestart()
-        }) {
-            SmartSpectraSettingsSheet(settings: $smartSpectraSettings)
+            GeminiInsightScreen(
+                heartRateSeries: scanHeartRateSeries,
+                breathingRateSeries: scanBreathingRateSeries
+            )
         }
         
         // MARK: - 4. Live Data Loop
@@ -176,41 +137,23 @@ struct PresageView: View {
             if isScanning, let metrics = newBuffer {
                 if let lastPulse = metrics.pulse.rate.last, lastPulse.value > 0 {
                     capturedHeartRate = Double(lastPulse.value)
+                    appendLiveSample(value: capturedHeartRate, series: &scanHeartRateSeries)
                 }
                 if let lastBreath = metrics.breathing.rate.last, lastBreath.value > 0 {
                     capturedBreathingRate = Double(lastBreath.value)
+                    appendLiveSample(value: capturedBreathingRate, series: &scanBreathingRateSeries)
                 }
             }
         }
     }
     
     // MARK: - Logic
-    func loadSmartSpectraSettings() {
-        do {
-            smartSpectraSettings = try SmartSpectraSettingsStore.load()
-            smartSpectraSettingsError = ""
-        } catch {
-            smartSpectraSettings = .default
-            smartSpectraSettingsError = error.localizedDescription
-        }
-    }
+    func setupSDK() {
+        guard !didSetupSDK else { return }
+        didSetupSDK = true
 
-    func saveSmartSpectraSettingsAndRestart() {
-        do {
-            try SmartSpectraSettingsStore.save(smartSpectraSettings)
-            smartSpectraSettingsError = ""
-        } catch {
-            smartSpectraSettingsError = error.localizedDescription
-        }
-
-        // Apply key and restart the engine if possible
-        setupSDKIfPossible()
-    }
-
-    func setupSDKIfPossible() {
-        guard smartSpectraSettings.isValid else { return }
-
-        sdk.setApiKey(smartSpectraSettings.apiKey)
+        // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
+        sdk.setApiKey("DP31vRLDNV71bzySLqvHCal3WWC4mnjf2sIAl8Xs")
         sdk.setSmartSpectraMode(.continuous)
         sdk.setImageOutputEnabled(true)
         sdk.setCameraPosition(.front)
@@ -219,12 +162,6 @@ struct PresageView: View {
         // This wakes up the Face Detector so the badge works instantly.
         processor.startProcessing()
         processor.startRecording()
-        
-        // Backup Timer to ensure face badge updates even if buffer is slow
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if self.processor.imageOutput == nil { return }
-            self.updateFaceStatus()
-        }
     }
     
     func startScan() {
@@ -233,6 +170,10 @@ struct PresageView: View {
         capturedBreathingRate = 0
         timeLeft = 20
         isScanning = true
+
+        scanStartTime = Date()
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
         
         // Note: We don't need to call startRecording() here because it's already running!
         // We just start the countdown.
@@ -248,10 +189,15 @@ struct PresageView: View {
     }
     
     func updateFaceStatus() {
+        guard processor.imageOutput != nil else { return }
+
         if let edge = sdk.edgeMetrics {
             if self.hasFace != edge.hasFace {
                 withAnimation { self.hasFace = edge.hasFace }
             }
+        } else if hasFace {
+            // If edge metrics are temporarily unavailable, don't keep a stale "true".
+            withAnimation { self.hasFace = false }
         }
     }
     
@@ -260,69 +206,55 @@ struct PresageView: View {
         processor.stopProcessing()
         processor.stopRecording()
         isScanning = false
+        hasFace = false
+        didSetupSDK = false
     }
     
     func finishScan() {
         // Stop capture and transition to insights
         processor.stopRecording()
         processor.stopProcessing()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Persist today's measurement (so Trends shows Today once a test is done).
-            if !didSaveVitalSign,
-               capturedHeartRate > 0,
-               capturedBreathingRate > 0 {
-                let vitalSign = VitalSign(
-                    timestamp: Date(),
-                    heartRate: Int(capturedHeartRate.rounded()),
-                    breathingRate: Int(capturedBreathingRate.rounded())
-                )
-                modelContext.insert(vitalSign)
-                try? modelContext.save()
-                didSaveVitalSign = true
-            }
 
-            isScanning = false
-            showingInsight = true
+        // Persist today's measurement (so Trends shows Today once a test is done).
+        if !didSaveVitalSign,
+           capturedHeartRate > 0,
+           capturedBreathingRate > 0 {
+            let vitalSign = VitalSign(
+                timestamp: Date(),
+                heartRate: Int(capturedHeartRate.rounded()),
+                breathingRate: Int(capturedBreathingRate.rounded())
+            )
+            modelContext.insert(vitalSign)
+            try? modelContext.save()
+            didSaveVitalSign = true
         }
+
+        isScanning = false
+        showingInsight = true
     }
     
     func resetScan() {
         timeLeft = 20
         isScanning = false
 
+        scanStartTime = nil
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
+
         // Turn the engine back on for the next preview
         processor.startProcessing()
         processor.startRecording()
     }
-}
 
-private struct SmartSpectraSettingsSheet: View {
-    @Environment(\.dismiss) var dismiss
-    @Binding var settings: SmartSpectraSettings
+    private func appendLiveSample(value: Double, series: inout [LiveMetricPoint]) {
+        guard let scanStartTime else { return }
+        let elapsed = Date().timeIntervalSince(scanStartTime)
+        series.append(.init(t: elapsed, value: value))
 
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("SmartSpectra")) {
-                    SecureField("API Key", text: $settings.apiKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Text("This key is stored in Keychain on-device.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Camera Settings")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { dismiss() }
-                }
-            }
+        // Keep only the last ~24 seconds.
+        let cutoff = max(0, elapsed - 24)
+        if let firstToKeep = series.firstIndex(where: { $0.t >= cutoff }), firstToKeep > 0 {
+            series.removeFirst(firstToKeep)
         }
     }
 }

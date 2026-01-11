@@ -2,7 +2,6 @@
 <g filter="url(#filter0_d_72_202)">
 <circle cx="36.5" cy="32.5" r="32.5" fill="#FFE5B8"/>
 <circle cx="36.5" cy="32.5" r="32.5" fill="url(#pattern0_72_202)"/>
-<circle cx="36.5" cy="32.5" r="32" stroke="black"/>
 </g>
 <defs>
 <filter id="filter0_d_72_202" x="0" y="0" width="73" height="73" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">

@@ -7,7 +7,8 @@ struct GeminiSettings: Equatable {
         !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    static let `default` = GeminiSettings(apiKey: "")
+    // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
+    static let `default` = GeminiSettings(apiKey: "AIzaSyAiamhBTh1BHwi7ZnQ4lpqNEpDuGaUlltg")
 }
 
 enum GeminiSettingsStore {
@@ -32,7 +33,11 @@ enum GeminiSettingsStore {
             try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
         }
 
-        // Back-compat cleanup: ignore any older saved model settings.
+        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            apiKey = GeminiSettings.default.apiKey
+            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
+        }
+
         return GeminiSettings(apiKey: apiKey)
     }
 
