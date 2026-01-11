@@ -21,7 +21,7 @@ struct GeminiInsightScreen: View {
                     header
                         .padding(.top, 18)
 
-                    GeminiInsightView(autoGenerateOnAppear: true)
+                        GeminiInsightView(autoGenerateOnAppear: true, isFullScreen: true)
 
                     Spacer(minLength: 40)
                 }
@@ -36,10 +36,7 @@ struct GeminiInsightScreen: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Insight")
                     .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(Color(red: 0.14, green: 0.15, blue: 0.28))
-                Text("Your vitals, explained in plain language")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color(red: 0.14, green: 0.15, blue: 0.28).opacity(0.65))
+                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
             }
 
             Spacer()

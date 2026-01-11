@@ -7,21 +7,57 @@ final class GeminiInsightViewModel: ObservableObject {
     @Published var insightText: String = ""
     @Published var errorText: String = ""
     @Published var isBusy: Bool = false
+    @Published var isRevealing: Bool = false
 
     let settings: GeminiSettings = .default
+
+    private var revealTask: Task<Void, Never>?
 
     func generate(today: VitalSign, history: [VitalSign]) {
         Task {
             await self.runBusy {
+                self.revealTask?.cancel()
+                self.isRevealing = false
+                self.insightText = ""
+                self.errorText = ""
+
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
                 let client = GeminiClient(settings: self.settings)
 
                 let text = try await client.generateText(prompt: prompt)
-                self.insightText = text
-                self.errorText = ""
+
+                // Smooth reveal: simulate text fading/typing in.
+                self.isRevealing = true
+                self.revealTask = Task { [weak self] in
+                    guard let self else { return }
+                    await self.revealText(text)
+                }
             }
         }
+    }
+
+    private func revealText(_ fullText: String) async {
+        // Reveal in chunks so it feels smooth without being too slow.
+        let scalars = Array(fullText.unicodeScalars)
+        let total = scalars.count
+
+        // Roughly finish in ~1.6s for typical responses.
+        let targetSteps = 90
+        let chunkSize = max(1, total / targetSteps)
+
+        var index = 0
+        while index < total {
+            if Task.isCancelled { return }
+            let next = min(total, index + chunkSize)
+            let slice = String(String.UnicodeScalarView(scalars[0..<next]))
+            self.insightText = slice
+            index = next
+            try? await Task.sleep(nanoseconds: 18_000_000) // ~18ms
+        }
+
+        self.insightText = fullText
+        self.isRevealing = false
     }
 
     private func runBusy(_ work: @escaping () async throws -> Void) async {
@@ -44,6 +80,7 @@ struct GeminiInsightView: View {
     @StateObject private var model = GeminiInsightViewModel()
 
     var autoGenerateOnAppear: Bool = false
+    var isFullScreen: Bool = false
 
     @State private var didAutoGenerate: Bool = false
 
@@ -75,12 +112,15 @@ struct GeminiInsightView: View {
                     vitalsRow(todayVital)
                         .padding(.top, 2)
 
-                    Button(model.isBusy ? "Generating…" : (model.insightText.isEmpty ? "Generate Insight" : "Regenerate")) {
-                        model.generate(today: todayVital, history: historyForComparison)
+                    // If not auto-generating (e.g., used as a card), allow a single manual generate.
+                    if !autoGenerateOnAppear && model.insightText.isEmpty {
+                        Button(model.isBusy ? "Generating…" : "Generate Insight") {
+                            model.generate(today: todayVital, history: historyForComparison)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                        .disabled(model.isBusy)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
-                    .disabled(model.isBusy)
                 }
             }
 
@@ -119,21 +159,29 @@ struct GeminiInsightView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.thinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+                .opacity(model.isRevealing ? 0.92 : 1.0)
+                .animation(.easeInOut(duration: 0.25), value: model.insightText)
             }
         }
-        .padding(16)
+        .padding(isFullScreen ? 0 : 16)
         .background(
-            LinearGradient(
-                colors: [
-                    Color.white,
-                    Color(red: 0.98, green: 0.98, blue: 1.0)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Group {
+                if isFullScreen {
+                    Color.clear
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color.white,
+                            Color(red: 0.98, green: 0.98, blue: 1.0)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
         )
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 20))
+        .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(isFullScreen ? 0 : 0.45), radius: 8, x: 0, y: 2)
         .onAppear {
             if self.autoGenerateOnAppear,
                !self.didAutoGenerate,
