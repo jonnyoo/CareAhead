@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import SmartSpectraSwiftSDK
 import SwiftData
+import Combine
 
 struct PresageView: View {
     @Environment(\.modelContext) private var modelContext
@@ -18,10 +19,19 @@ struct PresageView: View {
     @State private var capturedHeartRate: Double = 0.0
     @State private var capturedBreathingRate: Double = 0.0
 
+    // Live trace (captured during scan, displayed on Insights)
+    @State private var scanStartTime: Date?
+    @State private var scanHeartRateSeries: [LiveMetricPoint] = []
+    @State private var scanBreathingRateSeries: [LiveMetricPoint] = []
+
     @State private var didSaveVitalSign = false
     
     // Face Detection State
     @State private var hasFace: Bool = false
+
+    @State private var didSetupSDK: Bool = false
+
+    private let faceTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
     
     var body: some View {
         ZStack {
@@ -105,10 +115,17 @@ struct PresageView: View {
         }
         .onAppear { setupSDK() }
         .onDisappear { stopCameraCompletely() }
+        .onReceive(faceTimer) { _ in
+            // Keep the face badge responsive even if buffers are slow.
+            updateFaceStatus()
+        }
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {
             resetScan()
         }) {
-            GeminiInsightScreen()
+            GeminiInsightScreen(
+                heartRateSeries: scanHeartRateSeries,
+                breathingRateSeries: scanBreathingRateSeries
+            )
         }
         
         // MARK: - 4. Live Data Loop
@@ -120,9 +137,11 @@ struct PresageView: View {
             if isScanning, let metrics = newBuffer {
                 if let lastPulse = metrics.pulse.rate.last, lastPulse.value > 0 {
                     capturedHeartRate = Double(lastPulse.value)
+                    appendLiveSample(value: capturedHeartRate, series: &scanHeartRateSeries)
                 }
                 if let lastBreath = metrics.breathing.rate.last, lastBreath.value > 0 {
                     capturedBreathingRate = Double(lastBreath.value)
+                    appendLiveSample(value: capturedBreathingRate, series: &scanBreathingRateSeries)
                 }
             }
         }
@@ -130,8 +149,11 @@ struct PresageView: View {
     
     // MARK: - Logic
     func setupSDK() {
+        guard !didSetupSDK else { return }
+        didSetupSDK = true
+
         // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
-        sdk.setApiKey("GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J")
+        sdk.setApiKey("DP31vRLDNV71bzySLqvHCal3WWC4mnjf2sIAl8Xs")
         sdk.setSmartSpectraMode(.continuous)
         sdk.setImageOutputEnabled(true)
         sdk.setCameraPosition(.front)
@@ -140,12 +162,6 @@ struct PresageView: View {
         // This wakes up the Face Detector so the badge works instantly.
         processor.startProcessing()
         processor.startRecording()
-        
-        // Backup Timer to ensure face badge updates even if buffer is slow
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if self.processor.imageOutput == nil { return }
-            self.updateFaceStatus()
-        }
     }
     
     func startScan() {
@@ -154,6 +170,10 @@ struct PresageView: View {
         capturedBreathingRate = 0
         timeLeft = 20
         isScanning = true
+
+        scanStartTime = Date()
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
         
         // Note: We don't need to call startRecording() here because it's already running!
         // We just start the countdown.
@@ -169,10 +189,15 @@ struct PresageView: View {
     }
     
     func updateFaceStatus() {
+        guard processor.imageOutput != nil else { return }
+
         if let edge = sdk.edgeMetrics {
             if self.hasFace != edge.hasFace {
                 withAnimation { self.hasFace = edge.hasFace }
             }
+        } else if hasFace {
+            // If edge metrics are temporarily unavailable, don't keep a stale "true".
+            withAnimation { self.hasFace = false }
         }
     }
     
@@ -181,6 +206,8 @@ struct PresageView: View {
         processor.stopProcessing()
         processor.stopRecording()
         isScanning = false
+        hasFace = false
+        didSetupSDK = false
     }
     
     func finishScan() {
@@ -210,9 +237,25 @@ struct PresageView: View {
         timeLeft = 20
         isScanning = false
 
+        scanStartTime = nil
+        scanHeartRateSeries.removeAll()
+        scanBreathingRateSeries.removeAll()
+
         // Turn the engine back on for the next preview
         processor.startProcessing()
         processor.startRecording()
+    }
+
+    private func appendLiveSample(value: Double, series: inout [LiveMetricPoint]) {
+        guard let scanStartTime else { return }
+        let elapsed = Date().timeIntervalSince(scanStartTime)
+        series.append(.init(t: elapsed, value: value))
+
+        // Keep only the last ~24 seconds.
+        let cutoff = max(0, elapsed - 24)
+        if let firstToKeep = series.firstIndex(where: { $0.t >= cutoff }), firstToKeep > 0 {
+            series.removeFirst(firstToKeep)
+        }
     }
 }
 

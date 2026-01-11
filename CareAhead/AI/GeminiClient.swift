@@ -48,7 +48,7 @@ struct GeminiClient {
             contents: [
                 GeminiContent(parts: [GeminiPart(text: prompt)])
             ],
-            generationConfig: GeminiGenerationConfig(temperature: 0.4, maxOutputTokens: 768)
+            generationConfig: GeminiGenerationConfig(temperature: 0.35, maxOutputTokens: 2048)
         )
 
         let encoder = JSONEncoder()

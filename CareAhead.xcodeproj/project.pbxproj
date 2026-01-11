@@ -423,6 +423,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_GeminiApiKey = "$(GEMINI_API_KEY)";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find nearby healthcare providers.";
 				INFOPLIST_KEY_SmartSpectraApiKey = "$(SMARTSPECTRA_API_KEY)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -459,6 +460,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find nearby healthcare providers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
