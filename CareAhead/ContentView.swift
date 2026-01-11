@@ -13,7 +13,7 @@ struct ContentView: View {
                 case 1:
                     MapView()
                 case 2:
-                    CameraView()
+                    PresageView()
                 case 3:
                     TrendsView()
                 case 4:

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		47BA6E842F134EFA00565AB0 /* SmartSpectraSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 47BA6E832F134EFA00565AB0 /* SmartSpectraSwiftSDK */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		E70A153C2F133B9700197B0B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				47BA6E842F134EFA00565AB0 /* SmartSpectraSwiftSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +77,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		47BA6E822F134EFA00565AB0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		E70A15232F133B9300197B0B = {
 			isa = PBXGroup;
 			children = (
 				E70A152E2F133B9300197B0B /* CareAhead */,
 				E70A153E2F133B9700197B0B /* CareAheadTests */,
 				E70A15482F133B9700197B0B /* CareAheadUITests */,
+				47BA6E822F134EFA00565AB0 /* Frameworks */,
 				E70A152D2F133B9300197B0B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +125,7 @@
 			);
 			name = CareAhead;
 			packageProductDependencies = (
+				47BA6E832F134EFA00565AB0 /* SmartSpectraSwiftSDK */,
 			);
 			productName = CareAhead;
 			productReference = E70A152C2F133B9300197B0B /* CareAhead.app */;
@@ -195,6 +209,9 @@
 			);
 			mainGroup = E70A15232F133B9300197B0B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				47BA6E812F134DDD00565AB0 /* XCRemoteSwiftPackageReference "SmartSpectra" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E70A152D2F133B9300197B0B /* Products */;
 			projectDirPath = "";
@@ -400,6 +417,7 @@
 				DEVELOPMENT_TEAM = M5YR53CQW2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -432,6 +450,7 @@
 				DEVELOPMENT_TEAM = M5YR53CQW2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -578,6 +597,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		47BA6E812F134DDD00565AB0 /* XCRemoteSwiftPackageReference "SmartSpectra" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Presage-Security/SmartSpectra";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		47BA6E832F134EFA00565AB0 /* SmartSpectraSwiftSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 47BA6E812F134DDD00565AB0 /* XCRemoteSwiftPackageReference "SmartSpectra" */;
+			productName = SmartSpectraSwiftSDK;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E70A15242F133B9300197B0B /* Project object */;
 }
