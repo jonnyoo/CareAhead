@@ -12,7 +12,7 @@ struct PresageView: View {
     // UI State
     @State private var timeLeft = 20
     @State private var isScanning = false
-    @State private var scanComplete = false
+    @State private var showingInsight = false
     
     // Live Data Storage
     @State private var capturedHeartRate: Double = 0.0
@@ -47,7 +47,7 @@ struct PresageView: View {
             // MARK: - 2. UI Overlay
             VStack {
                 // Face Status Indicator (Always Visible now)
-                if !scanComplete {
+                if !isScanning {
                     HStack {
                         Circle()
                             .fill(hasFace ? Color.green : Color.red)
@@ -76,7 +76,7 @@ struct PresageView: View {
                 Spacer()
                 
                 // Bottom: Start Button
-                if !isScanning && !scanComplete {
+                if !isScanning {
                     Button(action: startScan) {
                         ZStack {
                             Circle()
@@ -87,7 +87,7 @@ struct PresageView: View {
                                 .frame(width: 70, height: 70)
                         }
                     }
-                    .disabled(!hasFace) // Force user to have face ready
+                    .disabled(!hasFace) // Require face
                     .padding(.bottom, 100)
                     
                     Text(hasFace ? "Tap to Start" : "Position Face to Start")
@@ -102,49 +102,14 @@ struct PresageView: View {
                         .padding(.bottom, 100)
                 }
             }
-            
-            // MARK: - 3. Results Popup
-            if scanComplete {
-                Color.black.opacity(0.85).ignoresSafeArea()
-                
-                VStack(spacing: 25) {
-                    Text("Measurement Complete")
-                        .font(.title2)
-                        .bold()
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 40) {
-                        VitalsResultRow(
-                            title: "Heart Rate",
-                            value: capturedHeartRate > 0 ? "\(Int(capturedHeartRate))" : "--",
-                            unit: "BPM"
-                        )
-                        VitalsResultRow(
-                            title: "Breathing",
-                            value: capturedBreathingRate > 0 ? "\(Int(capturedBreathingRate))" : "--",
-                            unit: "RPM"
-                        )
-                    }
-                    
-                    Button(action: resetScan) {
-                        Text("Done")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(12)
-                    }
-                    .padding(.top, 10)
-                }
-                .padding(30)
-                .background(Color(UIColor.secondarySystemBackground))
-                .cornerRadius(20)
-                .padding(.horizontal, 40)
-            }
         }
         .onAppear { setupSDK() }
         .onDisappear { stopCameraCompletely() }
+        .fullScreenCover(isPresented: $showingInsight, onDismiss: {
+            resetScan()
+        }) {
+            GeminiInsightScreen()
+        }
         
         // MARK: - 4. Live Data Loop
         .onChange(of: sdk.metricsBuffer) { oldValue, newBuffer in
@@ -165,8 +130,8 @@ struct PresageView: View {
     
     // MARK: - Logic
     func setupSDK() {
-        let apiKey = "GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J"
-        sdk.setApiKey(apiKey)
+        // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
+        sdk.setApiKey("GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J")
         sdk.setSmartSpectraMode(.continuous)
         sdk.setImageOutputEnabled(true)
         sdk.setCameraPosition(.front)
@@ -189,7 +154,6 @@ struct PresageView: View {
         capturedBreathingRate = 0
         timeLeft = 20
         isScanning = true
-        scanComplete = false
         
         // Note: We don't need to call startRecording() here because it's already running!
         // We just start the countdown.
@@ -220,34 +184,34 @@ struct PresageView: View {
     }
     
     func finishScan() {
-        // We stop recording here so the data "freezes" for the results page
+        // Stop capture and transition to insights
         processor.stopRecording()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation { scanComplete = true }
+        processor.stopProcessing()
 
-            // Persist today's measurement (so Trends shows Today once a test is done).
-            if !didSaveVitalSign,
-               capturedHeartRate > 0,
-               capturedBreathingRate > 0 {
-                let vitalSign = VitalSign(
-                    timestamp: Date(),
-                    heartRate: Int(capturedHeartRate.rounded()),
-                    breathingRate: Int(capturedBreathingRate.rounded())
-                )
-                modelContext.insert(vitalSign)
-                try? modelContext.save()
-                didSaveVitalSign = true
-            }
+        // Persist today's measurement (so Trends shows Today once a test is done).
+        if !didSaveVitalSign,
+           capturedHeartRate > 0,
+           capturedBreathingRate > 0 {
+            let vitalSign = VitalSign(
+                timestamp: Date(),
+                heartRate: Int(capturedHeartRate.rounded()),
+                breathingRate: Int(capturedBreathingRate.rounded())
+            )
+            modelContext.insert(vitalSign)
+            try? modelContext.save()
+            didSaveVitalSign = true
         }
+
+        isScanning = false
+        showingInsight = true
     }
     
     func resetScan() {
-        scanComplete = false
         timeLeft = 20
         isScanning = false
-        
-        // Turn the engine back on for the next "Silent Record" preview
+
+        // Turn the engine back on for the next preview
+        processor.startProcessing()
         processor.startRecording()
     }
 }

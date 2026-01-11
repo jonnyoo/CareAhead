@@ -5,6 +5,7 @@ import SwiftData
 struct TrendsView: View {
     @State private var showingHeartRateDetail = false
     @State private var showingBreathingRateDetail = false
+    @State private var showingSleepDetail = false
 
     @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
     
@@ -172,6 +173,62 @@ struct TrendsView: View {
                     showingBreathingRateDetail = true
                 }
                 .padding(.bottom, 10)
+                ZStack {
+                    Rectangle()
+                        .foregroundColor(.clear)
+                        .frame(width: 366, height: 293)
+                        .background(.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
+                        .padding(.horizontal, 24)
+                    
+                    VStack(alignment: .leading, spacing: 30) {
+                        Text("Sleep")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                            .padding(.leading, 24)
+                            .padding(.top, 25)
+                        
+                        // Bar Chart - 7 days
+                        Chart {
+                            ForEach(sleepPoints) { point in
+                                if let hours = point.value {
+                                    BarMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("Hours", hours)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .cornerRadius(6)
+                                }
+                            }
+                        }
+                        .frame(height: 175)
+                        .chartXScale(domain: xDomain)
+                        .chartYScale(domain: 0...10)
+                        .chartXAxis {
+                            AxisMarks(values: xDomain) { _ in
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                            }
+                        }
+                        .chartYAxis {
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 20)
+                    }
+                    .frame(width: 366, height: 293, alignment: .topLeading)
+                }
+                .onTapGesture {
+                    showingSleepDetail = true
+                }
                 Spacer(minLength: 100)
             }
             }
@@ -183,6 +240,9 @@ struct TrendsView: View {
         }
         .sheet(isPresented: $showingBreathingRateDetail) {
             BreathingRateDetailView(points: breathingRatePoints, xDomain: xDomain)
+        }
+        .sheet(isPresented: $showingSleepDetail) {
+            SleepDetailView(points: sleepPoints, xDomain: xDomain)
         }
     }
 }
@@ -264,6 +324,48 @@ struct HeartRateDetailView: View {
                         .padding(.horizontal, 24)
                     }
                     .padding(.vertical, 0)
+                    
+                    HStack(spacing: 15) {
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .foregroundColor(.clear)
+                                .frame(width: 175, height: 80)
+                                .background(Color(red: 0.87, green: 0.94, blue: 0.93))
+                                .cornerRadius(20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Avg HR")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                
+                                Text("81 BPM")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                            }
+                            .padding(.leading, 12)
+                        }
+                        
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .foregroundColor(.clear)
+                                .frame(width: 175, height: 80)
+                                .background(Color(red: 0.87, green: 0.94, blue: 0.93))
+                                .cornerRadius(20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your typical HR")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                
+                                Text("75 BPM")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                            }
+                            .padding(.leading, 15)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 25)
                     
                     Spacer()
                 }
@@ -360,6 +462,80 @@ struct BreathingRateDetailView: View {
     }
 }
 
+struct SleepDetailView: View {
+    @Environment(\.dismiss) var dismiss
+
+    let points: [TrendPoint<Double>]
+    let xDomain: [String]
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 0.96, green: 0.97, blue: 0.98)
+                    .ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Sleep")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                        .padding(.horizontal, 24)
+
+                    VStack(spacing: 16) {
+                        Chart {
+                            ForEach(points) { point in
+                                if let hours = point.value {
+                                    BarMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("Hours", hours)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .cornerRadius(6)
+                                }
+                            }
+                        }
+                        .frame(height: 250)
+                        .chartXScale(domain: xDomain)
+                        .chartYScale(domain: 0...10)
+                        .chartXAxis {
+                            AxisMarks(values: xDomain) { _ in
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                            }
+                        }
+                        .chartYAxis {
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .padding(.vertical, 24)
+
+                    Spacer()
+                }
+                .padding(.top, 0)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     TrendsView()
 }
@@ -395,6 +571,16 @@ private extension TrendsView {
             let key = Self.dateKey(day.dayStart)
             let vital = byDateKey[key]
             return TrendPoint(dayLabel: day.label, value: vital.map { Double($0.breathingRate) })
+        }
+    }
+
+    var sleepPoints: [TrendPoint<Double>] {
+        let days = TrendAxis.lastNDays(count: 7)
+        let byDateKey = Self.latestVitalSignByDateKey(vitalSigns)
+        return days.map { day in
+            let key = Self.dateKey(day.dayStart)
+            let vital = byDateKey[key]
+            return TrendPoint(dayLabel: day.label, value: vital?.sleepHours)
         }
     }
 
