@@ -44,15 +44,15 @@ struct HomeView: View {
                     .padding(.top, 20)
                     
                     // Looking Good Card
-                    ZStack(alignment: .leading) {
+                    ZStack {
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color(red: 0.45, green: 0.48, blue: 0.75))
                             .frame(height: 200)
                         
-                        HStack {
+                        HStack(alignment: .bottom, spacing: 0) {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Looking Good!")
-                                    .font(.system(size: 42, weight: .bold))
+                                    .font(.system(size: 35, weight: .bold))
                                     .foregroundColor(.white)
                                 
                                 Text("Your health trends align\nwith the past few\nweeks.")
@@ -61,18 +61,28 @@ struct HomeView: View {
                                     .lineSpacing(4)
                             }
                             .padding(.leading, 28)
+                            .padding(.bottom, 28)
                             
+                            Spacer(minLength: 0)
+                        }
+                        
+                        // Happy Face positioned absolutely in bottom-right corner
+                        VStack {
                             Spacer()
-                            
-                            // Happy Face Image
-                            Image("happy")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 140, height: 140)
-                                .offset(x: 20)
+                            HStack {
+                                Spacer()
+                                Image("happy")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 125, height: 125)
+                            }
                         }
                     }
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 24))
                     .padding(.horizontal)
+// ← ONLY change
+
                     
                     // Your Trends Section
                     VStack(alignment: .leading, spacing: 16) {
