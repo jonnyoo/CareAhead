@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HomeView: View {
+    @Binding var selectedTab: Int
+    
     var body: some View {
         ZStack {
             // Background color
@@ -125,9 +127,13 @@ struct HomeView: View {
                             
                             Spacer()
                             
-                            Text("See all")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
+                            Button(action: {
+                                selectedTab = 3
+                            }) {
+                                Text("See all")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
+                            }
                         }
                         .padding(.horizontal)
                         
@@ -342,5 +348,5 @@ struct SuggestionCard: View {
 }
 
 #Preview {
-    HomeView()
+    HomeView(selectedTab: .constant(0))
 }
