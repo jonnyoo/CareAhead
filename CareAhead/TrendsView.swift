@@ -46,7 +46,7 @@ struct TrendsView: View {
                 // Title at top
                 HStack {
                     Text("Your trends")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundColor(Color(red: 0.14, green: 0.15, blue: 0.28))
                     Spacer()
                     Image(systemName: "arrow.up.arrow.down")
@@ -62,7 +62,7 @@ struct TrendsView: View {
                         .foregroundColor(.clear)
                         .frame(width: 366, height: 120)
                         .background(riskCardColor)
-                        .cornerRadius(20)
+                        .cornerRadius(24)
                         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 24)
                     
@@ -99,7 +99,7 @@ struct TrendsView: View {
                         .foregroundColor(.clear)
                         .frame(width: 366, height: 260)
                         .background(.white)
-                        .cornerRadius(20)
+                        .cornerRadius(24)
                         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 24)
                     
@@ -157,7 +157,7 @@ struct TrendsView: View {
                         .foregroundColor(.clear)
                         .frame(width: 366, height: 260)
                         .background(.white)
-                        .cornerRadius(20)
+                        .cornerRadius(24)
                         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 24)
                     
@@ -216,7 +216,7 @@ struct TrendsView: View {
                         .foregroundColor(.clear)
                         .frame(width: 366, height: 293)
                         .background(.white)
-                        .cornerRadius(20)
+                        .cornerRadius(24)
                         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 24)
                     
@@ -426,7 +426,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Today HR")
@@ -437,7 +437,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 12)
+                            .padding(.leading, 20)
                         }
                         
                         ZStack(alignment: .leading) {
@@ -445,7 +445,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Avg HR")
@@ -456,7 +456,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 15)
+                            .padding(.leading, 20)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -474,7 +474,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                             .frame(maxWidth: .infinity)
                             .frame(height: 200)
                             .background(Color.white)
-                            .cornerRadius(20)
+                            .cornerRadius(24)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
 
                         VStack(alignment: .leading, spacing: 10) {
@@ -529,10 +529,10 @@ struct RiskLevelDetailView: View {
     }
 
     private var riskPrompt: String {
-        let todayLine = "Today risk: \(todayRisk.map { String(format: "%.1f", $0) } ?? "(no data)") / 10"
-        let avgLine = "Avg risk (7 days): \(avgRisk.map { String(format: "%.1f", $0) } ?? "(no data)") / 10"
+        let todayLine = "Today risk: \(todayRisk.map { "\(Int(($0 * 10).rounded()))" } ?? "(no data)") / 100"
+        let avgLine = "Avg risk (7 days): \(avgRisk.map { "\(Int(($0 * 10).rounded()))" } ?? "(no data)") / 100"
         let series = points.compactMap { $0.value }
-        let seriesLine = series.isEmpty ? "Recent (7 days): (no data)" : "Recent (7 days, oldest→newest): \(series.map { String(format: "%.1f", $0) }.joined(separator: ", "))"
+        let seriesLine = series.isEmpty ? "Recent (7 days): (no data)" : "Recent (7 days, oldest→newest): \(series.map { "\(Int(($0 * 10).rounded()))" }.joined(separator: ", "))"
 
         return """
 You are a supportive assistant for a health-tracking app.
@@ -559,8 +559,10 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
         }()
 
         if let todayRisk, let avgRisk {
-            let delta = todayRisk - avgRisk
-            return "Today: \(String(format: "%.1f", todayRisk))/10. Weekly avg: \(String(format: "%.1f", avgRisk))/10 (\(formatSigned(delta, unit: "/10", decimals: 1)) vs avg). \(trendSentence)"
+            let todayScaled = Int((todayRisk * 10).rounded())
+            let avgScaled = Int((avgRisk * 10).rounded())
+            let delta = todayScaled - avgScaled
+            return "Today: \(todayScaled)/100. Weekly avg: \(avgScaled)/100 (\(formatSigned(Double(delta), unit: "/100", decimals: 0)) vs avg). \(trendSentence)"
         }
         return "Run today’s video test to compute your risk score trend. \(trendSentence)"
     }
@@ -583,7 +585,7 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                                 if let risk = point.value {
                                     LineMark(
                                         x: .value("Day", point.dayLabel),
-                                        y: .value("Risk", risk)
+                                        y: .value("Risk", risk * 10)
                                     )
                                     .foregroundStyle(Color(red: 0.365, green: 0.384, blue: 0.659))
                                     .lineStyle(StrokeStyle(lineWidth: 3))
@@ -594,7 +596,7 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                         }
                         .frame(height: 250)
                         .chartXScale(domain: xDomain)
-                        .chartYScale(domain: 0...10)
+                        .chartYScale(domain: 0...100)
                         .chartXAxis {
                             AxisMarks(values: xDomain) { _ in
                                 AxisValueLabel()
@@ -621,18 +623,18 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Today")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("\(todayRisk.map { String(format: "%.1f", $0) } ?? "—") / 10")
+                                Text("\(todayRisk.map { "\(Int(($0 * 10).rounded()))" } ?? "—") / 100")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 12)
+                            .padding(.leading, 20)
                         }
                         
                         ZStack(alignment: .leading) {
@@ -640,18 +642,18 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Avg")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("\(avgRisk.map { String(format: "%.1f", $0) } ?? "—") / 10")
+                                Text("\(avgRisk.map { "\(Int(($0 * 10).rounded()))" } ?? "—") / 100")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 15)
+                            .padding(.leading, 20)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -669,7 +671,7 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                             .frame(maxWidth: .infinity)
                             .frame(height: 200)
                             .background(Color.white)
-                            .cornerRadius(20)
+                            .cornerRadius(24)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
@@ -820,7 +822,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Today BR")
@@ -831,7 +833,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 12)
+                            .padding(.leading, 20)
                         }
                         
                         ZStack(alignment: .leading) {
@@ -839,7 +841,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Avg BR")
@@ -850,7 +852,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 15)
+                            .padding(.leading, 20)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -868,7 +870,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                             .frame(maxWidth: .infinity)
                             .frame(height: 200)
                             .background(Color.white)
-                            .cornerRadius(20)
+                            .cornerRadius(24)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
@@ -965,7 +967,7 @@ struct StressView: View {
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Avg Stress")
@@ -976,7 +978,7 @@ struct StressView: View {
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 12)
+                            .padding(.leading, 20)
                         }
                         
                         ZStack(alignment: .leading) {
@@ -984,7 +986,7 @@ struct StressView: View {
                                 .foregroundColor(.clear)
                                 .frame(width: 175, height: 80)
                                 .background(Color(red: 0.87, green: 0.94, blue: 0.93))
-                                .cornerRadius(20)
+                                .cornerRadius(24)
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Typical Stress")
@@ -995,7 +997,7 @@ struct StressView: View {
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
-                            .padding(.leading, 15)
+                            .padding(.leading, 20)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -1013,7 +1015,7 @@ struct StressView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 200)
                             .background(Color.white)
-                            .cornerRadius(20)
+                            .cornerRadius(24)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         Text("Your stress levels have been relatively low over the past week, averaging 4.2 out of 10. This indicates good stress management. Continue practicing your stress-relief techniques to maintain this healthy balance!")

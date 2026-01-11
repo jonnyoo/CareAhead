@@ -37,7 +37,7 @@ struct HomeView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Good Afternoon,")
-                                .font(.system(size: 24, weight: .medium))
+                                .font(.system(size: 22, weight: .medium))
                                 .foregroundColor(Color(red: 0.45, green: 0.45, blue: 0.65))
                             Text("Olivia")
                                 .font(.system(size: 40, weight: .bold))
@@ -55,53 +55,49 @@ struct HomeView: View {
                             Image("Profile")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 75, height: 75)
+                                .frame(width: 70, height: 70)
                         }
                     }
                     .padding(.horizontal)
                     .padding(.top, 20)
                     
                     // Looking Good Card
-                    ZStack {
+                    ZStack(alignment: .topLeading) {
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color(red: 0.45, green: 0.48, blue: 0.75))
                             .frame(height: 200)
                         
-                        HStack(alignment: .bottom, spacing: 0) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(alignment: .center, spacing: 10) {
-                                    Text(encouragementTitle)
-                                        .font(.system(size: 35, weight: .bold))
-                                        .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(encouragementTitle)
+                                .font(.system(size: 35, weight: .bold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            
+                            Text(overviewBlurb)
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundColor(.white.opacity(0.95))
+                                .lineSpacing(4)
+                        }
+                        .padding(.leading, 24)
+                        .padding(.top, 24)
+                        
+                        // Risk Score positioned at top right
+                        VStack {
+                            HStack {
+                                Spacer()
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 7)
+                                        .fill(riskScoreColor)
+                                        .frame(width: 40, height: 30)
                                     
-                                    Spacer().frame(width: 30)
-                                    
-                                    
-                                    ZStack() {
-                                        RoundedRectangle(cornerRadius:7)
-                                            .fill(riskScoreColor)
-                                            .frame(width: 70, height: 30
-                                            )
-                                        
-                                        Text(riskScoreText)
-                                            .font(.system(size: 16, weight:.semibold))
-                                            .foregroundColor(Color(red: 0.2118, green: 0.4078, blue: 0.2431))
-
-                                    }
-                                    .offset(y: 2)
-                                    
+                                    Text(riskScoreText)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color(red: 0.2118, green: 0.4078, blue: 0.2431))
                                 }
-                            
-                                
-                                Text(overviewBlurb)
-                                    .font(.system(size: 18, weight: .regular))
-                                    .foregroundColor(.white.opacity(0.95))
-                                    .lineSpacing(4)
+                                .padding(.trailing, 20)
+                                .padding(.top, 28)
                             }
-                            .padding(.leading, 28)
-                            .padding(.bottom, 28)
-                            
-                            Spacer(minLength: 0)
+                            Spacer()
                         }
                         
                         // Happy Face positioned absolutely in bottom-right corner
@@ -309,7 +305,7 @@ private extension HomeView {
     }
 
     var riskScoreText: String {
-        todayVital == nil ? "RS: —" : "RS: \(riskScore)"
+        todayVital == nil ? "—" : "\(riskScore)"
     }
 
     var riskScoreColor: Color {
@@ -447,14 +443,13 @@ struct HealthMetricCard: View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color(red: 0.88, green: 0.88, blue: 0.95).opacity(0.6))
-                .frame(height: 220)
+                .frame(height: 175)
                 .frame(minWidth: 280)
             
-            HStack(alignment: .bottom) {
+            HStack(alignment: .top, spacing: 5) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(title)
                         .font(.system(size: 22, weight: .bold))
-                        .padding(.top, 20)
                         .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.45))
                     
                     Text(description)
@@ -463,7 +458,7 @@ struct HealthMetricCard: View {
                         .lineSpacing(2)
                 }
                 .padding(.leading, 28)
-                .padding(.bottom, 28)
+                .padding(.top, 5)
                 
                 Spacer()
                 
@@ -472,11 +467,11 @@ struct HealthMetricCard: View {
                     ForEach(0..<barHeights.count, id: \.self) { index in
                         RoundedRectangle(cornerRadius: 8)
                             .fill(barColors[index])
-                            .frame(width: 36, height: barHeights[index])
+                            .frame(width: 34, height: barHeights[index])
                     }
                 }
                 .padding(.trailing, 28)
-                .padding(.bottom, 28)
+                .padding(.top, 10)
             }
             
 

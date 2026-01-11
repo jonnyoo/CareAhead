@@ -8,9 +8,9 @@ struct SharedView: View {
     // Mock data using asset names
     private let updates: [UpdateCard] = [
         .init(avatarAsset: "Amy", name: "Amy Z.", time: "yesterday",
-              message: "Heart rate has been\nhigher than usual for\nthe past week"),
-        .init(avatarAsset: "Tom", name: "Tom Z.", time: "yesterday",
-              message: "Heart rate has been\nhigher than usual for\nthe past week")
+              message: "Heart rate has been higher than\nusual for the past week"),
+        .init(avatarAsset: "Tom", name: "Tom Z.", time: "yesterday",        
+              message: "Heart rate has been higher than\nusual for the past week")
     ]
 
     private let contacts: [ShareContact] = [
@@ -42,10 +42,22 @@ struct SharedView: View {
                 .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 18) {
-                Text("Sharing")
-                    .font(.system(size: 40, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x1E2447))
-                    .padding(.top, 10)
+                HStack {
+                    Text("Sharing")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundStyle(Color(hex: 0x1E2447))
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        // Add contact action
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(Color(hex: 0x1E2447))
+                    }
+                }
+                .padding(.top, 10)
 
                 // Cards
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -75,7 +87,7 @@ struct SharedView: View {
                 Spacer(minLength: 0)
 
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 18)
             .padding(.bottom, 18)
         }
         .sheet(isPresented: $showSheet) {

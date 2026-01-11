@@ -43,7 +43,6 @@ struct PresageView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .edgesIgnoringSafeArea(.all)
-                    .scaleEffect(x: -1, y: 1) // Mirror effect
             } else {
                 VStack {
                     ProgressView()
@@ -162,6 +161,41 @@ struct PresageView: View {
         // This wakes up the Face Detector so the badge works instantly.
         processor.startProcessing()
         processor.startRecording()
+        
+        // Configure autofocus after camera starts
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            configureCameraFocus()
+        }
+    }
+    
+    func configureCameraFocus() {
+        // Access the camera device and configure autofocus
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
+            return
+        }
+        
+        do {
+            try device.lockForConfiguration()
+            
+            // Enable continuous autofocus
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            
+            // Set focus point to center (where face typically is)
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = CGPoint(x: 0.5, y: 0.5)
+            }
+            
+            // Enable auto exposure
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            }
+            
+            device.unlockForConfiguration()
+        } catch {
+            print("Failed to configure camera focus: \(error)")
+        }
     }
     
     func startScan() {
