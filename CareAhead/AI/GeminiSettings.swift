@@ -6,9 +6,6 @@ struct GeminiSettings: Equatable {
     var isValid: Bool {
         !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-
-    // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
-    static let `default` = GeminiSettings(apiKey: "AIzaSyDgG4MMPHNO7UKQeeHaErPbWwqD9QZuyZM")
 }
 
 enum GeminiSettingsStore {
@@ -23,22 +20,22 @@ enum GeminiSettingsStore {
     }
 
     static func load() throws -> GeminiSettings {
-        var apiKey = try KeychainStore.getString(service: service, account: Account.apiKey) ?? ""
-
-        // Dev convenience: allow injecting the key via generated Info.plist from Secrets.xcconfig.
-        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let injected = Bundle.main.object(forInfoDictionaryKey: InfoPlistKey.apiKey) as? String,
-           !injected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            apiKey = injected
-            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
+        // 1. Read from the secure Info.plist entry
+        if let plistKey = Bundle.main.object(forInfoDictionaryKey: "GeminiApiKey") as? String, !plistKey.isEmpty {
+            if plistKey.contains("GEMINI_API_KEY") {
+                print("⚠️ Warning: Config file not linked. Seeing variable name instead of value.")
+            }
+            return GeminiSettings(apiKey: plistKey)
         }
 
-        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            apiKey = GeminiSettings.default.apiKey
-            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
+        // 2. Fallback to Keychain (if you still want to support it)
+        if let key = try? KeychainStore.getString(service: service, account: Account.apiKey) {
+            return GeminiSettings(apiKey: key)
         }
-
-        return GeminiSettings(apiKey: apiKey)
+        
+        // 3. Last resort / Error
+        print("❌ Error: API Key not found in Info.plist or Keychain")
+        return GeminiSettings(apiKey: "")
     }
 
     static func save(_ settings: GeminiSettings) throws {
