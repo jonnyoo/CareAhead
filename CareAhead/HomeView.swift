@@ -171,7 +171,7 @@ struct HomeView: View {
                                 // Stress Card
                                 HealthMetricCard(
                                     title: "Stress",
-                                    description: "Your stress levels\nhave decreased by 15%\ncompared to last week.",
+                                    description: "Stress is down\n15% vs last week.",
                                     barColors: [
                                         Color(red: 0.95, green: 0.7, blue: 0.6),
                                         Color(red: 0.92, green: 0.65, blue: 0.55),
@@ -326,18 +326,18 @@ private extension HomeView {
 
     var heartRateCardText: String {
         guard let hr = heartRateStats else {
-            return "Average bpm: —\nNormal bpm: —\nRun a few tests to\nbuild your baseline."
+            return "Avg: —\nNormal: —\nRun a few tests\nto build baseline."
         }
         let stableLine = stabilityLine(current: todayVital.map { Double($0.heartRate) }, stats: hr)
-        return "Average bpm: \(Int(hr.avg.rounded()))\nNormal bpm: \(Int(hr.low.rounded()))–\(Int(hr.high.rounded()))\n\(stableLine)"
+        return "Avg: \(Int(hr.avg.rounded())) bpm\nNormal: \(Int(hr.low.rounded()))–\(Int(hr.high.rounded()))\n\(stableLine)"
     }
 
     var breathingCardText: String {
         guard let br = breathingStats else {
-            return "Average rpm: —\nNormal rpm: —\nRun a few tests to\nbuild your baseline."
+            return "Avg: —\nNormal: —\nRun a few tests\nto build baseline."
         }
         let stableLine = stabilityLine(current: todayVital.map { Double($0.breathingRate) }, stats: br)
-        return "Average rpm: \(Int(br.avg.rounded()))\nNormal rpm: \(Int(br.low.rounded()))–\(Int(br.high.rounded()))\n\(stableLine)"
+        return "Avg: \(Int(br.avg.rounded())) rpm\nNormal: \(Int(br.low.rounded()))–\(Int(br.high.rounded()))\n\(stableLine)"
     }
 
     var suggestionLargeTitle: String {
@@ -373,18 +373,18 @@ private extension HomeView {
 
     func stabilityLine(current: Double?, stats: Stats) -> String {
         guard let current else {
-            return "Based on your past data."
+            return "Normal range."
         }
         let within = (current >= stats.low && current <= stats.high)
         let stable = stats.stdDev <= 8
 
         if within && stable {
-            return "Stable and within normal range based on your past data."
+            return "Stable. Normal range."
         }
         if within {
-            return "Within normal range based on your past data."
+            return "Normal range."
         }
-        return "Slightly outside your normal range based on your past data."
+        return "Outside normal range."
     }
 
     func stats(_ values: [Double]) -> Stats? {
