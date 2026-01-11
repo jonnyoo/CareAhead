@@ -92,7 +92,13 @@ struct TrendsView: View {
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 0)
@@ -141,7 +147,13 @@ struct TrendsView: View {
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 0)
@@ -189,7 +201,13 @@ struct TrendsView: View {
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 20)
@@ -303,7 +321,13 @@ struct HeartRateDetailView: View {
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                     }
@@ -366,7 +390,13 @@ struct BreathingRateDetailView: View {
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                     }
@@ -433,7 +463,13 @@ struct SleepDetailView: View {
                                 }
                             }
                             .chartYAxis {
-                                AxisMarks(position: .leading)
+                                AxisMarks(position: .leading) { _ in
+                                    AxisGridLine()
+                                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                    AxisValueLabel()
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                                }
                             }
                             .padding(.horizontal, 24)
                         }
