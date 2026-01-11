@@ -149,7 +149,7 @@ struct TrendsView: View {
                 .onTapGesture {
                     showingBloodPressureDetail = true
                 }
-                .padding(.bottom, 10)
+                .padding(.bottom, 15)
                 ZStack {
                     Rectangle()
                         .foregroundColor(.clear)
@@ -304,6 +304,48 @@ struct HeartRateDetailView: View {
                         .padding(.horizontal, 24)
                     }
                     .padding(.vertical, 0)
+                    
+                    HStack(spacing: 15) {
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .foregroundColor(.clear)
+                                .frame(width: 175, height: 80)
+                                .background(Color(red: 0.87, green: 0.94, blue: 0.93))
+                                .cornerRadius(20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Avg HR")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                
+                                Text("81 BPM")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                            }
+                            .padding(.leading, 12)
+                        }
+                        
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .foregroundColor(.clear)
+                                .frame(width: 175, height: 80)
+                                .background(Color(red: 0.87, green: 0.94, blue: 0.93))
+                                .cornerRadius(20)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your typical HR")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                
+                                Text("75 BPM")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                            }
+                            .padding(.leading, 15)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 25)
                     
                     Spacer()
                 }
