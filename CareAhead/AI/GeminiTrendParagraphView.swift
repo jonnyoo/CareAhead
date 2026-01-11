@@ -41,31 +41,33 @@ final class GeminiTrendParagraphViewModel: ObservableObject {
 
 struct GeminiTrendParagraphView: View {
     let prompt: String
+    let fallbackText: String
 
     @StateObject private var model = GeminiTrendParagraphViewModel()
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(model.text.isEmpty ? fallbackText : model.text)
+                .font(.system(size: 16, weight: .regular, design: .rounded))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                .lineSpacing(4)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.3), value: model.text)
+
             if model.isBusy && model.text.isEmpty {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ProgressView()
                         .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
-                    Text("Generating…")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.75))
+                    Text("Refining with AI…")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
                 }
-                .padding(.top, 4)
-            } else if !model.errorText.isEmpty {
-                Text(model.errorText)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(.red)
-            } else if !model.text.isEmpty {
-                Text(model.text)
-                    .font(.system(size: 16, weight: .regular, design: .rounded))
-                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
-                    .lineSpacing(4)
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.3), value: model.text)
+            }
+
+            if !model.errorText.isEmpty {
+                Text("Showing baseline summary (AI unavailable).")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.55))
             }
         }
         .onAppear {

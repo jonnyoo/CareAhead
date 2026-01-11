@@ -358,6 +358,30 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
 \(recentLine)
 """
     }
+
+    private var fallbackTrendText: String {
+        let recent = points.compactMap { $0.value }
+        return baselineFallbackParagraph(
+            metricName: "breathing rate",
+            today: todayBreathing.map(Double.init),
+            unit: "rpm",
+            baseline: baselineStats,
+            recent: recent,
+            directionThreshold: 1
+        )
+    }
+
+    private var fallbackTrendText: String {
+        let recent = points.compactMap { $0.value }.map { Double($0) }
+        return baselineFallbackParagraph(
+            metricName: "heart rate",
+            today: todayHeartRate.map(Double.init),
+            unit: "bpm",
+            baseline: baselineStats,
+            recent: recent,
+            directionThreshold: 3
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -466,7 +490,7 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: trendPrompt)
+                            GeminiTrendParagraphView(prompt: trendPrompt, fallbackText: fallbackTrendText)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
@@ -530,6 +554,24 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
 \(avgLine)
 \(seriesLine)
 """
+    }
+
+    private var fallbackTrendText: String {
+        let recent = points.compactMap { $0.value }
+        let dir = trendDirection(values: recent, threshold: 0.3)
+        let trendSentence: String = {
+            switch dir {
+            case "up": return "Over the last week, your risk trend looks slightly up."
+            case "down": return "Over the last week, your risk trend looks slightly down."
+            default: return "Over the last week, your risk trend looks stable."
+            }
+        }()
+
+        if let todayRisk, let avgRisk {
+            let delta = todayRisk - avgRisk
+            return "Today: \(String(format: "%.1f", todayRisk))/10. Weekly avg: \(String(format: "%.1f", avgRisk))/10 (\(formatSigned(delta, unit: "/10", decimals: 1)) vs avg). \(trendSentence)"
+        }
+        return "Run today’s video test to compute your risk score trend. \(trendSentence)"
     }
     
     var body: some View {
@@ -640,7 +682,7 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: riskPrompt)
+                            GeminiTrendParagraphView(prompt: riskPrompt, fallbackText: fallbackTrendText)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
@@ -824,7 +866,7 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: trendPrompt)
+                            GeminiTrendParagraphView(prompt: trendPrompt, fallbackText: fallbackTrendText)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
@@ -1047,6 +1089,56 @@ fileprivate struct TrendStats {
         let weight = idx - Double(lower)
         return sorted[lower] * (1 - weight) + sorted[upper] * weight
     }
+}
+
+fileprivate func trendDirection(values: [Double], threshold: Double) -> String {
+    guard values.count >= 2, let first = values.first, let last = values.last else { return "stable" }
+    let delta = last - first
+    if delta > threshold { return "up" }
+    if delta < -threshold { return "down" }
+    return "stable"
+}
+
+fileprivate func formatSigned(_ value: Double, unit: String, decimals: Int = 0) -> String {
+    let sign = value >= 0 ? "+" : "−"
+    let absVal = abs(value)
+    let formatted: String
+    if decimals == 0 {
+        formatted = String(Int(absVal.rounded()))
+    } else {
+        formatted = String(format: "%0.*f", decimals, absVal)
+    }
+    return "\(sign)\(formatted) \(unit)"
+}
+
+fileprivate func baselineFallbackParagraph(
+    metricName: String,
+    today: Double?,
+    unit: String,
+    baseline: TrendStats?,
+    recent: [Double],
+    directionThreshold: Double
+) -> String {
+    let dir = trendDirection(values: recent, threshold: directionThreshold)
+    let trendSentence: String = {
+        switch dir {
+        case "up": return "Over the last week, your \(metricName) trend looks slightly up."
+        case "down": return "Over the last week, your \(metricName) trend looks slightly down."
+        default: return "Over the last week, your \(metricName) trend looks stable."
+        }
+    }()
+
+    guard let today, let baseline else {
+        if let today {
+            return "Today: \(Int(today.rounded())) \(unit). \(trendSentence)"
+        }
+        return "Run today’s video test to see how your \(metricName) compares to your baseline. \(trendSentence)"
+    }
+
+    let delta = today - baseline.avg
+    let within = (today >= baseline.low && today <= baseline.high)
+    let withinText = within ? "within" : "outside"
+    return "Today: \(Int(today.rounded())) \(unit). Baseline avg: \(Int(baseline.avg.rounded())) \(unit) (normal \(Int(baseline.low.rounded()))–\(Int(baseline.high.rounded()))). That’s \(formatSigned(delta, unit: unit)) vs your average and \(withinText) your normal band. \(trendSentence)"
 }
 
 // MARK: - SwiftData-backed series
