@@ -22,6 +22,11 @@ struct PresageView: View {
     
     // Face Detection State
     @State private var hasFace: Bool = false
+
+    // SmartSpectra API Key (stored securely in Keychain)
+    @State private var smartSpectraSettings: SmartSpectraSettings = .default
+    @State private var isShowingSmartSpectraSettings: Bool = false
+    @State private var smartSpectraSettingsError: String = ""
     
     var body: some View {
         ZStack {
@@ -46,6 +51,42 @@ struct PresageView: View {
             
             // MARK: - 2. UI Overlay
             VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        isShowingSmartSpectraSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(10)
+                            .background(.black.opacity(0.45))
+                            .clipShape(Circle())
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.top, 55)
+                }
+
+                if !smartSpectraSettingsError.isEmpty {
+                    Text(smartSpectraSettingsError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
+
+                if !smartSpectraSettings.isValid {
+                    VStack(spacing: 8) {
+                        Text("SmartSpectra API key required")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text("Tap the gear icon to add your key.")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.top, 12)
+                }
+
                 // Face Status Indicator (Always Visible now)
                 if !isScanning {
                     HStack {
@@ -87,7 +128,7 @@ struct PresageView: View {
                                 .frame(width: 70, height: 70)
                         }
                     }
-                    .disabled(!hasFace) // Force user to have face ready
+                    .disabled(!hasFace || !smartSpectraSettings.isValid) // Require face + API key
                     .padding(.bottom, 100)
                     
                     Text(hasFace ? "Tap to Start" : "Position Face to Start")
@@ -103,12 +144,20 @@ struct PresageView: View {
                 }
             }
         }
-        .onAppear { setupSDK() }
+        .onAppear {
+            loadSmartSpectraSettings()
+            setupSDKIfPossible()
+        }
         .onDisappear { stopCameraCompletely() }
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {
             resetScan()
         }) {
             GeminiInsightScreen()
+        }
+        .sheet(isPresented: $isShowingSmartSpectraSettings, onDismiss: {
+            saveSmartSpectraSettingsAndRestart()
+        }) {
+            SmartSpectraSettingsSheet(settings: $smartSpectraSettings)
         }
         
         // MARK: - 4. Live Data Loop
@@ -129,9 +178,32 @@ struct PresageView: View {
     }
     
     // MARK: - Logic
-    func setupSDK() {
-        let apiKey = "GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J"
-        sdk.setApiKey(apiKey)
+    func loadSmartSpectraSettings() {
+        do {
+            smartSpectraSettings = try SmartSpectraSettingsStore.load()
+            smartSpectraSettingsError = ""
+        } catch {
+            smartSpectraSettings = .default
+            smartSpectraSettingsError = error.localizedDescription
+        }
+    }
+
+    func saveSmartSpectraSettingsAndRestart() {
+        do {
+            try SmartSpectraSettingsStore.save(smartSpectraSettings)
+            smartSpectraSettingsError = ""
+        } catch {
+            smartSpectraSettingsError = error.localizedDescription
+        }
+
+        // Apply key and restart the engine if possible
+        setupSDKIfPossible()
+    }
+
+    func setupSDKIfPossible() {
+        guard smartSpectraSettings.isValid else { return }
+
+        sdk.setApiKey(smartSpectraSettings.apiKey)
         sdk.setSmartSpectraMode(.continuous)
         sdk.setImageOutputEnabled(true)
         sdk.setCameraPosition(.front)
@@ -215,6 +287,36 @@ struct PresageView: View {
         // Turn the engine back on for the next preview
         processor.startProcessing()
         processor.startRecording()
+    }
+}
+
+private struct SmartSpectraSettingsSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var settings: SmartSpectraSettings
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("SmartSpectra")) {
+                    SecureField("API Key", text: $settings.apiKey)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    Text("This key is stored in Keychain on-device.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Camera Settings")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { dismiss() }
+                }
+            }
+        }
     }
 }
 
