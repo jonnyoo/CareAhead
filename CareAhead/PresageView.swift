@@ -84,7 +84,8 @@ struct PresageView: View {
         }
         // MARK: - Data Access
         // Monitor the metrics buffer for real-time updates
-        .onChange(of: sdk.metricsBuffer) { newBuffer in
+        // Updated for iOS 17+
+        .onChange(of: sdk.metricsBuffer) { oldValue, newBuffer in
             if let metrics = newBuffer {
                 // Access Pulse Data
                 metrics.pulse.rate.forEach { measurement in
