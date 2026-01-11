@@ -20,7 +20,8 @@ struct HealthcareMapScreen: View {
     @StateObject private var vm = HealthcareMapViewModel()
 
     @State private var selectedMapItem: MKMapItem?
-    @State private var isRecenterLoading = false
+    @State private var hasInitialCentered = false
+    @State private var hasSearched = false
 
     var body: some View {
         ZStack {
@@ -36,7 +37,6 @@ struct HealthcareMapScreen: View {
             }
             .mapControls {
                 MapCompass()
-                MapUserLocationButton()
                 MapScaleView()
             }
             .onAppear {
@@ -44,73 +44,44 @@ struct HealthcareMapScreen: View {
             }
             .onChange(of: location.currentLocation) { _, loc in
                 guard let loc else { return }
-                vm.searchNearbyHealthcare(around: loc)
+                
+                // On first location update, center on user
+                if !hasInitialCentered {
+                    hasInitialCentered = true
+                    vm.centerOnUserLocation(loc)
+                }
+                
+                // Search only once when map page is opened
+                if !hasSearched {
+                    hasSearched = true
+                    vm.searchNearbyHealthcare(around: loc)
+                }
             }
             .onChange(of: selectedMapItem) { _, item in
                 vm.select(mapItem: item)
             }
 
-            // Bottom overlay (card + tab bar)
-            VStack(spacing: 14) {
-                Spacer()
-
-                if vm.isPanelVisible, let selected = vm.selected {
-                    ProviderBottomCard(
-                        provider: selected,
-                        isSaved: vm.isSaved(selected),
-                        onClose: { vm.isPanelVisible = false },
-                        onDirections: { vm.openDirections(to: selected.mapItem) },
-                        onCall: { vm.call(selected.mapItem) },
-                        onToggleSave: { vm.toggleSave(selected) },
-                        onShare: { vm.shareText(for: selected) }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
-                BottomTabBar()
-            }
-            .padding(.bottom, 12)
-            .animation(.spring(response: 0.35, dampingFraction: 0.9), value: vm.isPanelVisible)
-
-            // Recenter button (bottom right)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        Task {
-                            isRecenterLoading = true
-                            vm.recenterToUserLocation(location.currentLocation)
-                            // Wait a moment for the animation to complete
-                            try? await Task.sleep(nanoseconds: 500_000_000)
-                            isRecenterLoading = false
-                        }
-                    }) {
-                        if isRecenterLoading {
-                            ProgressView()
-                                .tint(.white)
-                                .frame(width: 44, height: 44)
-                        } else {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
-                    .background(
-                        Circle()
-                            .fill(Color("AccentColor"))
-                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                    )
-                    .disabled(isRecenterLoading)
-                    .padding(.trailing, 16)
-                    .padding(.bottom, 80)
-                }
-            }
+            // Bottom overlay removed - using sheet instead
         }
         .onChange(of: vm.selected?.mapItem) { _, newItem in
             // Keep Map selection + bottom card in sync
             selectedMapItem = newItem
+        }
+        .sheet(isPresented: $vm.isPanelVisible) {
+            if let selected = vm.selected {
+                ProviderBottomCard(
+                    provider: selected,
+                    isSaved: vm.isSaved(selected),
+                    onClose: { vm.isPanelVisible = false },
+                    onDirections: { vm.openDirections(to: selected.mapItem) },
+                    onCall: { vm.call(selected.mapItem) },
+                    onToggleSave: { vm.toggleSave(selected) },
+                    onShare: { vm.shareText(for: selected) }
+                )
+                .presentationDetents([.fraction(0.3)])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled)
+            }
         }
     }
 }
@@ -121,7 +92,7 @@ final class HealthcareMapViewModel: ObservableObject {
     @Published var providers: [HealthcareProvider] = []
     @Published var selected: HealthcareProvider?
     @Published var cameraPosition: MapCameraPosition = .automatic
-    @Published var isPanelVisible: Bool = true
+    @Published var isPanelVisible: Bool = false
 
     private var savedIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "saved_providers") ?? [])
 
@@ -162,7 +133,7 @@ final class HealthcareMapViewModel: ObservableObject {
                 }
 
                 selected = final.first
-                isPanelVisible = true
+                // Don't auto-show sheet, only show when user selects a pin
 
                 // Center camera on closest provider to "bring to attention"
                 let region = MKCoordinateRegion(
@@ -184,13 +155,12 @@ final class HealthcareMapViewModel: ObservableObject {
         }
     }
 
-    func recenterToUserLocation(_ location: CLLocation?) {
-        guard let location else { return }
+    func centerOnUserLocation(_ location: CLLocation) {
         let region = MKCoordinateRegion(
             center: location.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
         )
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.easeInOut(duration: 0.5)) {
             cameraPosition = .region(region)
         }
     }
@@ -255,7 +225,7 @@ final class HealthcareMapViewModel: ObservableObject {
 
         req.region = MKCoordinateRegion(
             center: location.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+            span: MKCoordinateSpan(latitudeDelta: 0.27, longitudeDelta: 0.27)
         )
 
         let search = MKLocalSearch(request: req)
@@ -322,27 +292,14 @@ private struct ProviderBottomCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(provider.mapItem.name ?? "Healthcare provider")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.88))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(provider.mapItem.name ?? "Healthcare provider")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.black.opacity(0.88))
 
-                    Text(provider.mapItem.pointOfInterestSubtitle)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Color.black.opacity(0.55))
-                }
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.6))
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.black.opacity(0.06)))
-                }
-                .buttonStyle(.plain)
+                Text(provider.mapItem.pointOfInterestSubtitle)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color.black.opacity(0.55))
             }
 
             HStack(spacing: 10) {
@@ -351,6 +308,7 @@ private struct ProviderBottomCard: View {
                     systemImage: "location.fill",
                     action: onDirections
                 )
+                .frame(maxWidth: .infinity)
 
                 PillButton(
                     title: "Call",
@@ -358,12 +316,14 @@ private struct ProviderBottomCard: View {
                     isEnabled: provider.mapItem.phoneNumber != nil,
                     action: onCall
                 )
+                .frame(maxWidth: .infinity)
 
                 PillButton(
                     title: isSaved ? "Saved" : "Save",
                     systemImage: isSaved ? "bookmark.fill" : "bookmark",
                     action: onToggleSave
                 )
+                .frame(maxWidth: .infinity)
             }
 
             ShareLink(item: onShare()) {
@@ -378,13 +338,8 @@ private struct ProviderBottomCard: View {
                     )
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white.opacity(0.95))
-                .shadow(color: .black.opacity(0.12), radius: 20, x: 0, y: 14)
-        )
-        .padding(.horizontal, 16)
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -401,43 +356,17 @@ private struct PillButton: View {
                 Text(title)
             }
             .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(isEnabled ? Color.white : Color.white.opacity(0.55))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color("AccentColor").opacity(isEnabled ? 1.0 : 0.5))
+                    .fill(isEnabled ? Color("AccentColor") : Color.gray.opacity(0.4))
             )
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-    }
-}
-
-private struct BottomTabBar: View {
-    var body: some View {
-        HStack(spacing: 26) {
-            tab("house", selected: false)
-            tab("person.2", selected: true)
-            tab("waveform.path.ecg", selected: false)
-            tab("map", selected: false)
-        }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 22)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.95))
-                .shadow(color: .black.opacity(0.12), radius: 20, x: 0, y: 14)
-        )
-    }
-
-    @ViewBuilder
-    private func tab(_ systemImage: String, selected: Bool) -> some View {
-        Button(action: {}) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(selected ? Color("AccentColor") : Color.black.opacity(0.4))
-        }
     }
 }
 
