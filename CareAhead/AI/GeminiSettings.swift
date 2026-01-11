@@ -9,7 +9,6 @@ struct GeminiSettings: Equatable {
 
     // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
     static let `default` = GeminiSettings(apiKey: "AIzaSyBb6-JgEb1JcFF7wMEX9aJm3cQCfTO_IKQ")
-}
 
     // MARK: - Persistence & Loading Logic
     
@@ -24,7 +23,7 @@ struct GeminiSettings: Equatable {
 
         // Dev convenience: allow injecting the key via generated Info.plist from Secrets.xcconfig.
         if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let injected = Bundle.main.object(forInfoDictionaryKey: InfoPlistKey.apiKey) as? String,
+           let injected = Bundle.main.object(forInfoDictionaryKey: "GEMINI_API_KEY") as? String,
            !injected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             apiKey = injected
             try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
@@ -46,3 +45,4 @@ struct GeminiSettings: Equatable {
         try KeychainStore.delete(service: service, account: Account.apiKey)
     }
 }
+
