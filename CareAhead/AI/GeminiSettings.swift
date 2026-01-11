@@ -8,7 +8,7 @@ struct GeminiSettings: Equatable {
     }
 
     // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
-    static let `default` = GeminiSettings(apiKey: "AIzaSyDgG4MMPHNO7UKQeeHaErPbWwqD9QZuyZM")
+    static let `default` = GeminiSettings(apiKey: "AIzaSyBb6-JgEb1JcFF7wMEX9aJm3cQCfTO_IKQ")
 }
 
     // MARK: - Persistence & Loading Logic
