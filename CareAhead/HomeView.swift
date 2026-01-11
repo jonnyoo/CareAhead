@@ -69,7 +69,7 @@ struct HomeView: View {
                         HStack(alignment: .bottom, spacing: 0) {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(alignment: .center, spacing: 10) {
-                                    Text("Looks Good!")
+                                    Text(encouragementTitle)
                                         .font(.system(size: 35, weight: .bold))
                                         .foregroundColor(.white)
                                     
@@ -78,11 +78,11 @@ struct HomeView: View {
                                     
                                     ZStack() {
                                         RoundedRectangle(cornerRadius:7)
-                                            .fill(Color(red: 0.52, green: 0.91, blue: 0.58))
+                                            .fill(riskScoreColor)
                                             .frame(width: 70, height: 30
                                             )
                                         
-                                        Text("RS: 1")
+                                        Text(riskScoreText)
                                             .font(.system(size: 16, weight:.semibold))
                                             .foregroundColor(Color(red: 0.2118, green: 0.4078, blue: 0.2431))
 
@@ -92,7 +92,7 @@ struct HomeView: View {
                                 }
                             
                                 
-                                Text("Your health trends align\nwith the past few\nweeks.")
+                                Text(overviewBlurb)
                                     .font(.system(size: 18, weight: .regular))
                                     .foregroundColor(.white.opacity(0.95))
                                     .lineSpacing(4)
@@ -118,7 +118,6 @@ struct HomeView: View {
                     .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .padding(.horizontal)
-// ← ONLY change
 
                     
                     // Your Trends Section
@@ -146,7 +145,7 @@ struct HomeView: View {
                                 // Heart Rate Card
                                 HealthMetricCard(
                                     title: "Heart Rate",
-                                    description: "Your heart rate\nover the past week\nhas been\nconsistent with\nprevious data.",
+                                    description: heartRateCardText,
                                     barColors: [
                                         Color(red: 0.4, green: 0.8, blue: 0.7),
                                         Color(red: 0.5, green: 0.85, blue: 0.75),
@@ -159,7 +158,7 @@ struct HomeView: View {
                                 // Breathing Card
                                 HealthMetricCard(
                                     title: "Breathing",
-                                    description: "Your breathing rate\nhas been stable and\nwithin normal range\nfor the past week.",
+                                    description: breathingCardText,
                                     barColors: [
                                         Color(red: 0.6, green: 0.75, blue: 0.95),
                                         Color(red: 0.65, green: 0.78, blue: 0.98),
@@ -194,25 +193,25 @@ struct HomeView: View {
                         
                         HStack(spacing: 12) {
                             SuggestionCard(
-                                title: "Monitor blood sugar",
-                                description: "Your blood pressure has recently been up 10%.",
-                                icon: "drop.fill",
+                                title: suggestionLargeTitle,
+                                description: suggestionLargeDescription,
+                                icon: suggestionLargeIcon,
                                 cardNumber: 1,
                                 isLarge: true
                             )
                             
                             VStack(spacing: 12) {
                                 SuggestionCard(
-                                    title: "Hydration",
-                                    description: "Drink at least 2L of water every day",
-                                    icon: "drop.fill",
+                                    title: suggestionSmall1Title,
+                                    description: suggestionSmall1Description,
+                                    icon: suggestionSmall1Icon,
                                     cardNumber: 2
                                 )
                             
                                 SuggestionCard(
-                                    title: "Exercise",
-                                    description: "Go for a walk to maintain cardiovascular",
-                                    icon: "figure.walk",
+                                    title: suggestionSmall2Title,
+                                    description: suggestionSmall2Description,
+                                    icon: suggestionSmall2Icon,
                                     cardNumber: 3,
                                     isWide: true
                                 )
@@ -231,6 +230,208 @@ struct HomeView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Home computations
+
+private extension HomeView {
+    struct Stats {
+        let avg: Double
+        let low: Double
+        let high: Double
+        let stdDev: Double
+    }
+
+    var todayVital: VitalSign? {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        return vitalSigns.first(where: { calendar.isDate($0.timestamp, inSameDayAs: start) })
+    }
+
+    var comparisonVitals: [VitalSign] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        return vitalSigns
+            .filter { !calendar.isDate($0.timestamp, inSameDayAs: todayStart) }
+            .prefix(60)
+            .map { $0 }
+    }
+
+    var heartRateStats: Stats? {
+        let values = comparisonVitals.map { Double($0.heartRate) }
+        return stats(values)
+    }
+
+    var breathingStats: Stats? {
+        let values = comparisonVitals.map { Double($0.breathingRate) }
+        return stats(values)
+    }
+
+    var encouragementTitle: String {
+        // Short, encouraging phrases that can rotate.
+        if todayVital == nil {
+            return "Quick check-in?"
+        }
+
+        let phrasesLow = ["Looking great!", "On track!", "Nice work!", "All good!"]
+        let phrasesMid = ["Staying steady", "Doing okay!", "Keep it up", "Nice trend!"]
+        let phrasesHigh = ["Let’s reset", "Take it easy", "Small steps", "Breathe & reset"]
+
+        let dayIndex = (Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0)
+        if riskScore <= 25 {
+            return phrasesLow[abs(dayIndex) % phrasesLow.count]
+        } else if riskScore <= 60 {
+            return phrasesMid[abs(dayIndex) % phrasesMid.count]
+        } else {
+            return phrasesHigh[abs(dayIndex) % phrasesHigh.count]
+        }
+    }
+
+    var overviewBlurb: String {
+        if todayVital == nil {
+            return "Do today’s video test\nto generate insights\nfrom your past data."
+        }
+        return "Your health trends align\nwith your past data!"
+    }
+
+    var riskScore: Int {
+        guard let today = todayVital, let hr = heartRateStats, let br = breathingStats else { return 0 }
+
+        // Score is driven by how far today is from the user’s normal band.
+        // 1 = very low risk, 100 = very high risk.
+        let hrPenalty = penalty(value: Double(today.heartRate), low: hr.low, high: hr.high, scale: max(6, hr.stdDev))
+        let brPenalty = penalty(value: Double(today.breathingRate), low: br.low, high: br.high, scale: max(2, br.stdDev))
+        let combined = 1 + Int((hrPenalty * 0.6 + brPenalty * 0.4).rounded())
+        return min(100, max(1, combined))
+    }
+
+    var riskScoreText: String {
+        todayVital == nil ? "RS: —" : "RS: \(riskScore)"
+    }
+
+    var riskScoreColor: Color {
+        guard todayVital != nil else {
+            return Color.white.opacity(0.35)
+        }
+        switch riskScore {
+        case 1...25:
+            return Color(red: 0.52, green: 0.91, blue: 0.58)
+        case 26...60:
+            return Color(red: 1.0, green: 0.78, blue: 0.25)
+        default:
+            return Color(red: 0.96, green: 0.42, blue: 0.45)
+        }
+    }
+
+    var heartRateCardText: String {
+        guard let hr = heartRateStats else {
+            return "Average bpm: —\nNormal bpm: —\nRun a few tests to\nbuild your baseline."
+        }
+        let stableLine = stabilityLine(current: todayVital.map { Double($0.heartRate) }, stats: hr)
+        return "Average bpm: \(Int(hr.avg.rounded()))\nNormal bpm: \(Int(hr.low.rounded()))–\(Int(hr.high.rounded()))\n\(stableLine)"
+    }
+
+    var breathingCardText: String {
+        guard let br = breathingStats else {
+            return "Average rpm: —\nNormal rpm: —\nRun a few tests to\nbuild your baseline."
+        }
+        let stableLine = stabilityLine(current: todayVital.map { Double($0.breathingRate) }, stats: br)
+        return "Average rpm: \(Int(br.avg.rounded()))\nNormal rpm: \(Int(br.low.rounded()))–\(Int(br.high.rounded()))\n\(stableLine)"
+    }
+
+    var suggestionLargeTitle: String {
+        if todayVital == nil { return "Get today’s reading" }
+        if riskScore >= 60 { return "Reset & recover" }
+        return "Keep your rhythm"
+    }
+
+    var suggestionLargeDescription: String {
+        // Medium-length suggestion.
+        guard let today = todayVital else {
+            return "Run the video test once today to personalize your baseline and unlock a detailed insight summary."
+        }
+        if let hr = heartRateStats, Double(today.heartRate) > hr.high {
+            return "Today’s heart rate is a bit above your normal band. Try a 5–10 minute wind-down: slow breathing, water, and a short break from screens."
+        }
+        if let br = breathingStats, Double(today.breathingRate) > br.high {
+            return "Your breathing rate is a bit higher than your usual. Try a 3–5 minute breathing reset (inhale 4s, exhale 6s) and re-test later."
+        }
+        return "Your breathing and heart rate look consistent with your baseline. Keep your routine steady and re-test around the same time tomorrow."
+    }
+
+    var suggestionLargeIcon: String { "sparkles" }
+
+    // Two short suggestions.
+    var suggestionSmall1Title: String { "Hydration" }
+    var suggestionSmall1Description: String { "Drink a full glass of water" }
+    var suggestionSmall1Icon: String { "drop.fill" }
+
+    var suggestionSmall2Title: String { "Movement" }
+    var suggestionSmall2Description: String { "10-minute easy walk" }
+    var suggestionSmall2Icon: String { "figure.walk" }
+
+    func stabilityLine(current: Double?, stats: Stats) -> String {
+        guard let current else {
+            return "Based on your past data."
+        }
+        let within = (current >= stats.low && current <= stats.high)
+        let stable = stats.stdDev <= 8
+
+        if within && stable {
+            return "Stable and within normal range based on your past data."
+        }
+        if within {
+            return "Within normal range based on your past data."
+        }
+        return "Slightly outside your normal range based on your past data."
+    }
+
+    func stats(_ values: [Double]) -> Stats? {
+        guard !values.isEmpty else { return nil }
+        let avg = values.reduce(0, +) / Double(values.count)
+        let std = stdDev(values, mean: avg)
+        let (low, high) = normalBand(values)
+        return Stats(avg: avg, low: low, high: high, stdDev: std)
+    }
+
+    func stdDev(_ values: [Double], mean: Double) -> Double {
+        guard values.count >= 2 else { return 0 }
+        let variance = values
+            .map { ($0 - mean) * ($0 - mean) }
+            .reduce(0, +) / Double(values.count - 1)
+        return sqrt(variance)
+    }
+
+    func normalBand(_ values: [Double]) -> (Double, Double) {
+        let sorted = values.sorted()
+        if sorted.count >= 10 {
+            let low = percentile(sorted, p: 0.15)
+            let high = percentile(sorted, p: 0.85)
+            return (low, high)
+        }
+        return (sorted.first ?? 0, sorted.last ?? 0)
+    }
+
+    func percentile(_ sorted: [Double], p: Double) -> Double {
+        guard !sorted.isEmpty else { return 0 }
+        let clamped = min(1, max(0, p))
+        let idx = (Double(sorted.count - 1) * clamped)
+        let lower = Int(floor(idx))
+        let upper = Int(ceil(idx))
+        if lower == upper { return sorted[lower] }
+        let weight = idx - Double(lower)
+        return sorted[lower] * (1 - weight) + sorted[upper] * weight
+    }
+
+    func penalty(value: Double, low: Double, high: Double, scale: Double) -> Double {
+        if value < low {
+            return min(99, ((low - value) / max(1, scale)) * 35)
+        }
+        if value > high {
+            return min(99, ((value - high) / max(1, scale)) * 35)
+        }
+        return 6
     }
 }
 
