@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 @MainActor
 final class GeminiInsightViewModel: ObservableObject {
@@ -28,26 +29,26 @@ final class GeminiInsightViewModel: ObservableObject {
 
     func generate(today: VitalSign, history: [VitalSign]) {
         Task {
-            await runBusy {
+            await self.runBusy {
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
-                let client = GeminiClient(settings: settings)
+                let client = GeminiClient(settings: self.settings)
                 let text = try await client.generateText(prompt: prompt)
-                insightText = text
-                errorText = ""
+                self.insightText = text
+                self.errorText = ""
             }
         }
     }
 
     private func runBusy(_ work: @escaping () async throws -> Void) async {
-        guard !isBusy else { return }
-        isBusy = true
-        defer { isBusy = false }
+        guard !self.isBusy else { return }
+        self.isBusy = true
+        defer { self.isBusy = false }
 
         do {
             try await work()
         } catch {
-            errorText = error.localizedDescription
+            self.errorText = error.localizedDescription
         }
     }
 }
@@ -113,19 +114,19 @@ struct GeminiInsightView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
         .onAppear {
-            model.loadSettings()
+            self.model.loadSettings()
 
-            if autoGenerateOnAppear,
-               !didAutoGenerate,
-               model.settings.isValid,
+            if self.autoGenerateOnAppear,
+               !self.didAutoGenerate,
+               self.model.settings.isValid,
                let todayVital = latestTodayVitalSign {
-                didAutoGenerate = true
-                model.generate(today: todayVital, history: historyForComparison)
+                self.didAutoGenerate = true
+                self.model.generate(today: todayVital, history: self.historyForComparison)
             }
         }
         .sheet(isPresented: $model.isShowingSettings) {
             GeminiSettingsSheet(settings: $model.settings, onSave: {
-                model.saveSettings()
+                self.model.saveSettings()
             })
         }
     }
