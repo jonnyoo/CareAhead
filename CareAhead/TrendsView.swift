@@ -1,10 +1,12 @@
 import SwiftUI
 import Charts
+import SwiftData
 
 struct TrendsView: View {
     @State private var showingHeartRateDetail = false
-    @State private var showingBloodPressureDetail = false
-    @State private var showingSleepDetail = false
+    @State private var showingBreathingRateDetail = false
+
+    @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
     
     var body: some View {
         ZStack {
@@ -69,28 +71,39 @@ struct TrendsView: View {
                             .padding(.leading, 24)
                             .padding(.top, 40)
                     
-                        // Bar Chart - 7 days
+                        // Line Chart - 7 days
                         Chart {
-                            ForEach(heartRateData) { data in
-                                BarMark(
-                                    x: .value("Day", data.day),
-                                    y: .value("Steps", data.steps)
-                                )
-                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .cornerRadius(6)
+                            ForEach(heartRatePoints) { point in
+                                if let bpm = point.value {
+                                    LineMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("BPM", bpm)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .lineStyle(StrokeStyle(lineWidth: 3))
+                                    .symbol(Circle().strokeBorder(lineWidth: 2))
+                                    .symbolSize(60)
+                                }
                             }
                         }
                         .frame(height: 175)
+                        .chartXScale(domain: xDomain)
                         .chartYScale(domain: 0...120)
                         .chartXAxis {
-                            AxisMarks(values: .automatic) { _ in
+                            AxisMarks(values: xDomain) { _ in
                                 AxisValueLabel()
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 0)
@@ -110,7 +123,7 @@ struct TrendsView: View {
                         .padding(.horizontal, 24)
                     
                     VStack(alignment: .leading, spacing: 30) {
-                        Text("Blood Pressure")
+                        Text("Breathing Rate")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             .padding(.leading, 24)
@@ -118,28 +131,37 @@ struct TrendsView: View {
                         
                         // Line Chart - 7 days
                         Chart {
-                            ForEach(bloodPressureData) { data in
-                                LineMark(
-                                    x: .value("Day", data.day),
-                                    y: .value("Systolic", data.systolic)
-                                )
-                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .lineStyle(StrokeStyle(lineWidth: 3))
-                                .symbol(Circle().strokeBorder(lineWidth: 2))
-                                .symbolSize(60)
+                            ForEach(breathingRatePoints) { point in
+                                if let rpm = point.value {
+                                    LineMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("RPM", rpm)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .lineStyle(StrokeStyle(lineWidth: 3))
+                                    .symbol(Circle().strokeBorder(lineWidth: 2))
+                                    .symbolSize(60)
+                                }
                             }
                         }
                         .frame(height: 150)
-                        .chartYScale(domain: 100...140)
+                        .chartXScale(domain: xDomain)
+                        .chartYScale(domain: 8...24)
                         .chartXAxis {
-                            AxisMarks(values: .automatic) { _ in
+                            AxisMarks(values: xDomain) { _ in
                                 AxisValueLabel()
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 0)
@@ -147,9 +169,9 @@ struct TrendsView: View {
                     .frame(width: 366, height: 293, alignment: .topLeading)
                 }
                 .onTapGesture {
-                    showingBloodPressureDetail = true
+                    showingBreathingRateDetail = true
                 }
-                .padding(.bottom, 15)
+                .padding(.bottom, 10)
                 ZStack {
                     Rectangle()
                         .foregroundColor(.clear)
@@ -204,68 +226,42 @@ struct TrendsView: View {
             .ignoresSafeArea(edges: .top)
         }
         .sheet(isPresented: $showingHeartRateDetail) {
-            HeartRateDetailView()
+            HeartRateDetailView(points: heartRatePoints, xDomain: xDomain)
         }
-        .sheet(isPresented: $showingBloodPressureDetail) {
-            BloodPressureDetailView()
-        }
-        .sheet(isPresented: $showingSleepDetail) {
-            SleepDetailView()
+        .sheet(isPresented: $showingBreathingRateDetail) {
+            BreathingRateDetailView(points: breathingRatePoints, xDomain: xDomain)
         }
     }
 }
 
-struct BloodPressureData: Identifiable {
-    let id = UUID()
-    let day: String
-    let systolic: Double
+enum TrendAxis {
+    private static let calendar = Calendar.current
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE" // Mon/Tue/...
+        return formatter
+    }()
+
+    static func lastNDays(count: Int, referenceDate: Date = Date()) -> [(label: String, dayStart: Date)] {
+        guard count > 0 else { return [] }
+
+        let startOfToday = calendar.startOfDay(for: referenceDate)
+        return (0..<count).map { index in
+            let daysAgo = (count - 1) - index
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: startOfToday) ?? startOfToday
+            let label = calendar.isDate(date, inSameDayAs: startOfToday) ? "Today" : weekdayFormatter.string(from: date)
+            return (label: label, dayStart: date)
+        }
+    }
 }
-
-let bloodPressureData = [
-    BloodPressureData(day: "Mon", systolic: 118),
-    BloodPressureData(day: "Tue", systolic: 122),
-    BloodPressureData(day: "Wed", systolic: 115),
-    BloodPressureData(day: "Thu", systolic: 125),
-    BloodPressureData(day: "Fri", systolic: 120),
-    BloodPressureData(day: "Sat", systolic: 128),
-    BloodPressureData(day: "Sun", systolic: 123)
-]
-
-struct HeartRateData: Identifiable {
-    let id = UUID()
-    let day: String
-    let steps: Int
-}
-
-let heartRateData = [
-    HeartRateData(day: "Mon", steps: 80),
-    HeartRateData(day: "Tue", steps: 60),
-    HeartRateData(day: "Wed", steps: 100),
-    HeartRateData(day: "Thu", steps: 89),
-    HeartRateData(day: "Fri", steps: 79),
-    HeartRateData(day: "Sat", steps: 77),
-    HeartRateData(day: "Sun", steps: 99)
-]
-
-struct SleepData: Identifiable {
-    let id = UUID()
-    let day: String
-    let hours: Double
-}
-
-let sleepData = [
-    SleepData(day: "Mon", hours: 7.5),
-    SleepData(day: "Tue", hours: 6.8),
-    SleepData(day: "Wed", hours: 8.2),
-    SleepData(day: "Thu", hours: 7.0),
-    SleepData(day: "Fri", hours: 7.8),
-    SleepData(day: "Sat", hours: 6.5),
-    SleepData(day: "Sun", hours: 8.5)
-]
 
 // Detail Views
 struct HeartRateDetailView: View {
     @Environment(\.dismiss) var dismiss
+
+    let points: [TrendPoint<Int>]
+    let xDomain: [String]
     
     var body: some View {
         NavigationView {
@@ -280,26 +276,37 @@ struct HeartRateDetailView: View {
                         .padding(.horizontal, 24)
                     VStack(spacing: 16) {
                         Chart {
-                            ForEach(heartRateData) { data in
-                                BarMark(
-                                    x: .value("Day", data.day),
-                                    y: .value("BPM", data.steps)
-                                )
-                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .cornerRadius(6)
+                            ForEach(points) { point in
+                                if let bpm = point.value {
+                                    LineMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("BPM", bpm)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .lineStyle(StrokeStyle(lineWidth: 3))
+                                    .symbol(Circle().strokeBorder(lineWidth: 2))
+                                    .symbolSize(60)
+                                }
                             }
                         }
                         .frame(height: 250)
+                        .chartXScale(domain: xDomain)
                         .chartYScale(domain: 0...120)
                         .chartXAxis {
-                            AxisMarks(values: .automatic) { _ in
+                            AxisMarks(values: xDomain) { _ in
                                 AxisValueLabel()
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                     }
@@ -367,8 +374,11 @@ struct HeartRateDetailView: View {
     }
 }
 
-struct BloodPressureDetailView: View {
+struct BreathingRateDetailView: View {
     @Environment(\.dismiss) var dismiss
+
+    let points: [TrendPoint<Double>]
+    let xDomain: [String]
     
     var body: some View {
         NavigationView {
@@ -377,34 +387,43 @@ struct BloodPressureDetailView: View {
                     .ignoresSafeArea()
                 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Blood Pressure")
+                    Text("Breathing Rate")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                         .padding(.horizontal, 24)
                     VStack(spacing: 16) {
                         Chart {
-                            ForEach(bloodPressureData) { data in
-                                LineMark(
-                                    x: .value("Day", data.day),
-                                    y: .value("Systolic", data.systolic)
-                                )
-                                .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .lineStyle(StrokeStyle(lineWidth: 3))
-                                .symbol(Circle().strokeBorder(lineWidth: 2))
-                                .symbolSize(60)
+                            ForEach(points) { point in
+                                if let rpm = point.value {
+                                    LineMark(
+                                        x: .value("Day", point.dayLabel),
+                                        y: .value("RPM", rpm)
+                                    )
+                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
+                                    .lineStyle(StrokeStyle(lineWidth: 3))
+                                    .symbol(Circle().strokeBorder(lineWidth: 2))
+                                    .symbolSize(60)
+                                }
                             }
                         }
                         .frame(height: 250)
-                        .chartYScale(domain: 100...140)
+                        .chartXScale(domain: xDomain)
+                        .chartYScale(domain: 8...24)
                         .chartXAxis {
-                            AxisMarks(values: .automatic) { _ in
+                            AxisMarks(values: xDomain) { _ in
                                 AxisValueLabel()
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
                             }
                         }
                         .chartYAxis {
-                            AxisMarks(position: .leading)
+                            AxisMarks(position: .leading) { _ in
+                                AxisGridLine()
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.22))
+                                AxisValueLabel()
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.72))
+                            }
                         }
                         .padding(.horizontal, 24)
                     }
@@ -430,75 +449,63 @@ struct BloodPressureDetailView: View {
     }
 }
 
-struct SleepDetailView: View {
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                Color(red: 0.96, green: 0.97, blue: 0.98)
-                    .ignoresSafeArea()
-                
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Sleep")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
-                        .padding(.horizontal, 24)
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.white)
-                            .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
-                        
-                        VStack(spacing: 16) {
-                            Chart {
-                                ForEach(sleepData) { data in
-                                    BarMark(
-                                        x: .value("Day", data.day),
-                                        y: .value("Hours", data.hours)
-                                    )
-                                    .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                    .cornerRadius(6)
-                                }
-                            }
-                            .frame(height: 250)
-                            .chartYScale(domain: 0...10)
-                            .chartXAxis {
-                                AxisMarks(values: .automatic) { _ in
-                                    AxisValueLabel()
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
-                                }
-                            }
-                            .chartYAxis {
-                                AxisMarks(position: .leading)
-                            }
-                            .padding(.horizontal, 24)
-                        }
-                        .padding(.vertical, 24)
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    Spacer()
-                }
-                .padding(.top, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color(red: 0.45, green: 0.48, blue: 0.75))
-                    }
-                }
-            }
-        }
-    }
-}
-
 #Preview {
     TrendsView()
+}
+
+struct TrendPoint<Value>: Identifiable {
+    let dayLabel: String
+    let value: Value?
+
+    var id: String { dayLabel }
+}
+
+// MARK: - SwiftData-backed series
+
+private extension TrendsView {
+    var xDomain: [String] {
+        TrendAxis.lastNDays(count: 7).map { $0.label }
+    }
+
+    var heartRatePoints: [TrendPoint<Int>] {
+        let days = TrendAxis.lastNDays(count: 7)
+        let byDateKey = Self.latestVitalSignByDateKey(vitalSigns)
+        return days.map { day in
+            let key = Self.dateKey(day.dayStart)
+            let vital = byDateKey[key]
+            return TrendPoint(dayLabel: day.label, value: vital?.heartRate)
+        }
+    }
+
+    var breathingRatePoints: [TrendPoint<Double>] {
+        let days = TrendAxis.lastNDays(count: 7)
+        let byDateKey = Self.latestVitalSignByDateKey(vitalSigns)
+        return days.map { day in
+            let key = Self.dateKey(day.dayStart)
+            let vital = byDateKey[key]
+            return TrendPoint(dayLabel: day.label, value: vital.map { Double($0.breathingRate) })
+        }
+    }
+
+    static func latestVitalSignByDateKey(_ vitalSigns: [VitalSign]) -> [String: VitalSign] {
+        // `vitalSigns` is already sorted newest-first; first per day wins.
+        var result: [String: VitalSign] = [:]
+        for vital in vitalSigns {
+            let key = dateKey(vital.timestamp)
+            if result[key] == nil {
+                result[key] = vital
+            }
+        }
+        return result
+    }
+
+    static func dateKey(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: start)
+    }
 }
