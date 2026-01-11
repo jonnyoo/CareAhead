@@ -478,7 +478,10 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: trendPrompt, fallbackText: fallbackTrendText)
+                            Text(fallbackTrendText)
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                .lineSpacing(4)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
@@ -670,7 +673,10 @@ Focus on whether it's stable/up/down over the last week, and keep wording calm.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: riskPrompt, fallbackText: fallbackTrendText)
+                            Text(fallbackTrendText)
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                .lineSpacing(4)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
@@ -866,7 +872,10 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 10) {
-                            GeminiTrendParagraphView(prompt: trendPrompt, fallbackText: fallbackTrendText)
+                            Text(fallbackTrendText)
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                                .lineSpacing(4)
                         }
                         .padding(.horizontal, 25)
                         .padding(.top, 25)
