@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import SmartSpectraSwiftSDK
 import SwiftData
+import Combine
 
 struct PresageView: View {
     @Environment(\.modelContext) private var modelContext
@@ -22,6 +23,10 @@ struct PresageView: View {
     
     // Face Detection State
     @State private var hasFace: Bool = false
+
+    @State private var didSetupSDK: Bool = false
+
+    private let faceTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
     
     var body: some View {
         ZStack {
@@ -105,6 +110,10 @@ struct PresageView: View {
         }
         .onAppear { setupSDK() }
         .onDisappear { stopCameraCompletely() }
+        .onReceive(faceTimer) { _ in
+            // Keep the face badge responsive even if buffers are slow.
+            updateFaceStatus()
+        }
         .fullScreenCover(isPresented: $showingInsight, onDismiss: {
             resetScan()
         }) {
@@ -130,6 +139,9 @@ struct PresageView: View {
     
     // MARK: - Logic
     func setupSDK() {
+        guard !didSetupSDK else { return }
+        didSetupSDK = true
+
         // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
         sdk.setApiKey("GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J")
         sdk.setSmartSpectraMode(.continuous)
@@ -140,12 +152,6 @@ struct PresageView: View {
         // This wakes up the Face Detector so the badge works instantly.
         processor.startProcessing()
         processor.startRecording()
-        
-        // Backup Timer to ensure face badge updates even if buffer is slow
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if self.processor.imageOutput == nil { return }
-            self.updateFaceStatus()
-        }
     }
     
     func startScan() {
@@ -169,10 +175,15 @@ struct PresageView: View {
     }
     
     func updateFaceStatus() {
+        guard processor.imageOutput != nil else { return }
+
         if let edge = sdk.edgeMetrics {
             if self.hasFace != edge.hasFace {
                 withAnimation { self.hasFace = edge.hasFace }
             }
+        } else if hasFace {
+            // If edge metrics are temporarily unavailable, don't keep a stale "true".
+            withAnimation { self.hasFace = false }
         }
     }
     
@@ -181,6 +192,8 @@ struct PresageView: View {
         processor.stopProcessing()
         processor.stopRecording()
         isScanning = false
+        hasFace = false
+        didSetupSDK = false
     }
     
     func finishScan() {
