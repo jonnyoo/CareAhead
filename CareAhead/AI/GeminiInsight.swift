@@ -91,8 +91,9 @@ enum GeminiInsightPromptBuilder {
             .joined(separator: "\n")
 
         return """
-You are an assistant for a health-tracking app. Provide supportive, non-alarmist insights.
-Do NOT give medical diagnoses. Include a brief disclaimer like: 'Not medical advice.'
+    You are an assistant for a health-tracking app. Provide supportive, non-alarmist insights.
+    Do NOT give medical diagnoses. Do NOT claim certainty. Include a brief disclaimer: 'Not medical advice.'
+    Write a LONG, detailed analysis (aim for 800–1200 words). Use clear markdown headings and bullet lists.
 
 Today (\(iso.string(from: todayStart))):
 - Heart rate: \(input.today.heartRate) bpm
@@ -109,11 +110,35 @@ History summary (last \(min(30, input.history.count)) days):
 Daily history:
 \(historyLines)
 
-Output format:
-1) Today’s insight (2-3 bullets)
-2) Compared to your baseline (2-3 bullets)
-3) If there’s a noticeable trend (up/down/volatile), mention it briefly
-4) One gentle suggestion for today (sleep/hydration/stress) without medical claims
+Output format (markdown):
+
+## Today’s Insights
+- A detailed narrative summary of today’s HR/BR/Sleep together (not just bullets).
+- Call out what seems “in range” vs “notable” *relative to their own baseline*, using the summary numbers.
+
+## Compared to your baseline
+- Quantify differences vs averages (e.g., “~X bpm above your avg”).
+- Discuss whether the difference is likely meaningful or could be normal daily variation.
+
+## Trend & variability (last 7–30 days)
+- Describe directionality (up/down/stable) and volatility.
+- If the history suggests irregularity, describe it gently and mention benign causes (sleep, stress, caffeine, posture, time of day).
+
+## Sleep context (if present)
+- Explain how sleep duration could relate to resting HR/BR (correlation, not causation).
+- If sleep is missing today, mention that and still use historical sleep for context.
+
+## Data quality & confidence
+- Mention that camera-based estimates can vary; note any reasons accuracy could be affected (movement, lighting, face detection).
+- State a confidence level (low/medium/high) and why.
+
+## Practical plan for today
+- 3–6 specific, gentle, actionable suggestions (hydration, stress reset, breathing drill, bedtime routine), no medical claims.
+
+## What to watch tomorrow
+- 2–4 simple things to track (sleep, time of test, hydration, exercise) that could explain changes.
+
+End with: 'Not medical advice.'
 """
     }
 }

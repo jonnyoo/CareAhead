@@ -86,20 +86,22 @@ struct GeminiInsightView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
+            if !isFullScreen {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
 
-                Text("Today’s Insight")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
+                    Text("Today’s Insight")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Color.black.opacity(0.88))
 
-                Spacer()
+                    Spacer()
 
-                if model.isBusy {
-                    ProgressView()
-                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    if model.isBusy {
+                        ProgressView()
+                            .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
                 }
             }
 
@@ -134,7 +136,7 @@ struct GeminiInsightView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Generating insight…")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.8))
+                        .foregroundStyle(Color.black.opacity(0.78))
                     ProgressView()
                         .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
                 }
@@ -154,7 +156,7 @@ struct GeminiInsightView: View {
                 }
                 .textSelection(.enabled)
                 .font(.system(.body, design: .rounded))
-                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                .foregroundStyle(Color.black.opacity(0.88))
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.thinMaterial)
