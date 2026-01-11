@@ -20,8 +20,8 @@ final class GeminiInsightViewModel: ObservableObject {
                 self.showText = false
                 
                 // 1. Securely load settings inside the task
-                guard let settings = try? GeminiSettings.load() else {
-                    self.errorText = "Could not load API Key from Secrets."
+                guard let settings = try? GeminiSettings.load(), settings.isValid else {
+                    self.errorText = "Missing Gemini API key. Set GEMINI_API_KEY in Secrets.xcconfig and rebuild."
                     return
                 }
                 

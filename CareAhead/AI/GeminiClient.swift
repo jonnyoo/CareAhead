@@ -10,14 +10,33 @@ struct GeminiClient {
         var errorDescription: String? {
             switch self {
             case .missingApiKey:
-                return "Missing Gemini API key. Add it in the Insight panel settings."
+                return "Missing Gemini API key. Add GEMINI_API_KEY in Secrets.xcconfig and rebuild."
             case .invalidURL:
                 return "Invalid Gemini URL"
             case .httpError(let statusCode, let body):
-                return "Gemini HTTP \(statusCode): \(body)"
+                if let message = Self.extractAPIErrorMessage(from: body) {
+                    return "Gemini error (HTTP \(statusCode)): \(message)"
+                }
+                return "Gemini error (HTTP \(statusCode))."
             case .emptyResponse:
                 return "Gemini returned an empty response"
             }
+        }
+
+        private static func extractAPIErrorMessage(from body: String) -> String? {
+            guard let data = body.data(using: .utf8) else { return nil }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            guard let error = json["error"] as? [String: Any] else { return nil }
+
+            if let message = error["message"] as? String, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return message
+            }
+
+            if let status = error["status"] as? String, !status.isEmpty {
+                return status
+            }
+
+            return nil
         }
     }
 

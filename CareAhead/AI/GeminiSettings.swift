@@ -7,8 +7,7 @@ struct GeminiSettings: Equatable {
         !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
-    static let `default` = GeminiSettings(apiKey: "AIzaSyBb6-JgEb1JcFF7wMEX9aJm3cQCfTO_IKQ")
+    static let `default` = GeminiSettings(apiKey: "")
 
     // MARK: - Persistence & Loading Logic
     
@@ -17,24 +16,37 @@ struct GeminiSettings: Equatable {
         static let apiKey = "apiKey"
     }
 
-    /// Loads the settings from Info.plist (secure) or Keychain (legacy)
+    private enum InfoPlistKey {
+        // This key is injected via Xcode build setting: INFOPLIST_KEY_GeminiApiKey
+        static let apiKey = "GeminiApiKey"
+
+        // Back-compat if the app was built with a different plist key.
+        static let legacyApiKey = "GEMINI_API_KEY"
+    }
+
+    /// Loads the settings from Info.plist (Secrets.xcconfig -> build settings -> Info.plist) or Keychain.
     static func load() throws -> GeminiSettings {
-        var apiKey = try KeychainStore.getString(service: service, account: Account.apiKey) ?? ""
+        let keychainValue = (try KeychainStore.getString(service: service, account: Account.apiKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Dev convenience: allow injecting the key via generated Info.plist from Secrets.xcconfig.
-        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let injected = Bundle.main.object(forInfoDictionaryKey: "GEMINI_API_KEY") as? String,
-           !injected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            apiKey = injected
-            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
+        let injectedValue = (
+            (Bundle.main.object(forInfoDictionaryKey: InfoPlistKey.apiKey) as? String)
+                ?? (Bundle.main.object(forInfoDictionaryKey: InfoPlistKey.legacyApiKey) as? String)
+                ?? ""
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Prefer the build-injected key so changing Secrets.xcconfig fixes the app even
+        // if an older (expired) key was previously cached in Keychain.
+        if !injectedValue.isEmpty {
+            if injectedValue != keychainValue {
+                try? KeychainStore.setString(injectedValue, service: service, account: Account.apiKey)
+            }
+            return GeminiSettings(apiKey: injectedValue)
         }
 
-        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            apiKey = GeminiSettings.default.apiKey
-            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
-        }
-
-        return GeminiSettings(apiKey: apiKey)
+        // Fall back to Keychain (e.g., if you add an in-app settings screen later).
+        return GeminiSettings(apiKey: keychainValue)
     }
 
     static func save(_ settings: GeminiSettings) throws {
