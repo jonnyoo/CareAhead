@@ -172,6 +172,11 @@ struct TrendsView: View {
                     showingBreathingRateDetail = true
                 }
                 .padding(.bottom, 10)
+
+                GeminiInsightView()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 6)
+
                 Spacer(minLength: 100)
             }
             }
