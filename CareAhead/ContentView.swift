@@ -33,11 +33,6 @@ struct ContentView: View {
         }
         .task {
             try? VitalSignSeeder.seedIfNeeded(modelContext: modelContext)
-
-            // Bootstrap API keys from Info.plist (Secrets.xcconfig) into Keychain.
-            // This allows camera/insight views to start without prompting for keys.
-            _ = try? GeminiSettingsStore.load()
-            _ = try? SmartSpectraSettingsStore.load()
         }
     }
 }
