@@ -3,7 +3,7 @@ import Charts
 
 struct TrendsView: View {
     @State private var showingHeartRateDetail = false
-    @State private var showingBloodPressureDetail = false
+    @State private var showingBreathingRateDetail = false
     @State private var showingSleepDetail = false
     
     var body: some View {
@@ -69,15 +69,17 @@ struct TrendsView: View {
                             .padding(.leading, 24)
                             .padding(.top, 40)
                     
-                        // Bar Chart - 7 days
+                        // Line Chart - 7 days
                         Chart {
                             ForEach(heartRateData) { data in
-                                BarMark(
+                                LineMark(
                                     x: .value("Day", data.day),
-                                    y: .value("Steps", data.steps)
+                                    y: .value("BPM", data.steps)
                                 )
                                 .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .cornerRadius(6)
+                                .lineStyle(StrokeStyle(lineWidth: 3))
+                                .symbol(Circle().strokeBorder(lineWidth: 2))
+                                .symbolSize(60)
                             }
                         }
                         .frame(height: 175)
@@ -110,7 +112,7 @@ struct TrendsView: View {
                         .padding(.horizontal, 24)
                     
                     VStack(alignment: .leading, spacing: 30) {
-                        Text("Blood Pressure")
+                        Text("Breathing Rate")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             .padding(.leading, 24)
@@ -118,10 +120,10 @@ struct TrendsView: View {
                         
                         // Line Chart - 7 days
                         Chart {
-                            ForEach(bloodPressureData) { data in
+                            ForEach(breathingRateData) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
-                                    y: .value("Systolic", data.systolic)
+                                    y: .value("RPM", data.rpm)
                                 )
                                 .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
                                 .lineStyle(StrokeStyle(lineWidth: 3))
@@ -130,7 +132,7 @@ struct TrendsView: View {
                             }
                         }
                         .frame(height: 150)
-                        .chartYScale(domain: 100...140)
+                        .chartYScale(domain: 8...24)
                         .chartXAxis {
                             AxisMarks(values: .automatic) { _ in
                                 AxisValueLabel()
@@ -147,7 +149,7 @@ struct TrendsView: View {
                     .frame(width: 366, height: 293, alignment: .topLeading)
                 }
                 .onTapGesture {
-                    showingBloodPressureDetail = true
+                    showingBreathingRateDetail = true
                 }
                 .padding(.bottom, 10)
                 ZStack {
@@ -206,8 +208,8 @@ struct TrendsView: View {
         .sheet(isPresented: $showingHeartRateDetail) {
             HeartRateDetailView()
         }
-        .sheet(isPresented: $showingBloodPressureDetail) {
-            BloodPressureDetailView()
+        .sheet(isPresented: $showingBreathingRateDetail) {
+            BreathingRateDetailView()
         }
         .sheet(isPresented: $showingSleepDetail) {
             SleepDetailView()
@@ -215,20 +217,20 @@ struct TrendsView: View {
     }
 }
 
-struct BloodPressureData: Identifiable {
+struct BreathingRateData: Identifiable {
     let id = UUID()
     let day: String
-    let systolic: Double
+    let rpm: Double
 }
 
-let bloodPressureData = [
-    BloodPressureData(day: "Mon", systolic: 118),
-    BloodPressureData(day: "Tue", systolic: 122),
-    BloodPressureData(day: "Wed", systolic: 115),
-    BloodPressureData(day: "Thu", systolic: 125),
-    BloodPressureData(day: "Fri", systolic: 120),
-    BloodPressureData(day: "Sat", systolic: 128),
-    BloodPressureData(day: "Sun", systolic: 123)
+let breathingRateData = [
+    BreathingRateData(day: "Mon", rpm: 14),
+    BreathingRateData(day: "Tue", rpm: 16),
+    BreathingRateData(day: "Wed", rpm: 15),
+    BreathingRateData(day: "Thu", rpm: 17),
+    BreathingRateData(day: "Fri", rpm: 14),
+    BreathingRateData(day: "Sat", rpm: 18),
+    BreathingRateData(day: "Sun", rpm: 16)
 ]
 
 struct HeartRateData: Identifiable {
@@ -281,12 +283,14 @@ struct HeartRateDetailView: View {
                     VStack(spacing: 16) {
                         Chart {
                             ForEach(heartRateData) { data in
-                                BarMark(
+                                LineMark(
                                     x: .value("Day", data.day),
                                     y: .value("BPM", data.steps)
                                 )
                                 .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
-                                .cornerRadius(6)
+                                .lineStyle(StrokeStyle(lineWidth: 3))
+                                .symbol(Circle().strokeBorder(lineWidth: 2))
+                                .symbolSize(60)
                             }
                         }
                         .frame(height: 250)
@@ -325,7 +329,7 @@ struct HeartRateDetailView: View {
     }
 }
 
-struct BloodPressureDetailView: View {
+struct BreathingRateDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -335,16 +339,16 @@ struct BloodPressureDetailView: View {
                     .ignoresSafeArea()
                 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Blood Pressure")
+                    Text("Breathing Rate")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                         .padding(.horizontal, 24)
                     VStack(spacing: 16) {
                         Chart {
-                            ForEach(bloodPressureData) { data in
+                            ForEach(breathingRateData) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
-                                    y: .value("Systolic", data.systolic)
+                                    y: .value("RPM", data.rpm)
                                 )
                                 .foregroundStyle(Color(red: 0.36, green: 0.78, blue: 0.7))
                                 .lineStyle(StrokeStyle(lineWidth: 3))
@@ -353,7 +357,7 @@ struct BloodPressureDetailView: View {
                             }
                         }
                         .frame(height: 250)
-                        .chartYScale(domain: 100...140)
+                        .chartYScale(domain: 8...24)
                         .chartXAxis {
                             AxisMarks(values: .automatic) { _ in
                                 AxisValueLabel()
