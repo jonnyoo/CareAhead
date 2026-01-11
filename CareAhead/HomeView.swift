@@ -39,7 +39,7 @@ struct HomeView: View {
                             Text("Good Morning,")
                                 .font(.system(size: 24, weight: .medium))
                                 .foregroundColor(Color(red: 0.45, green: 0.45, blue: 0.65))
-                            Text("Bobber")
+                            Text("Olivia")
                                 .font(.system(size: 40, weight: .bold))
                                 .foregroundColor(Color(red: 0.2, green: 0.2, blue: 0.35))
                         }
@@ -50,11 +50,12 @@ struct HomeView: View {
                         ZStack {
                             Circle()
                                 .fill(Color(red: 0.5, green: 0.65, blue: 0.95))
-                                .frame(width: 80, height: 80)
+                                .frame(width: 32, height: 32)
                             
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(Color(red: 0.95, green: 0.3, blue: 0.6))
+                            Image("Profile")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 75, height: 75)
                         }
                     }
                     .padding(.horizontal)
