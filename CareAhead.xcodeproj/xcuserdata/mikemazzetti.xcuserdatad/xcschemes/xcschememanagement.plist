@@ -4,10 +4,33 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
+		<key>CareAhead 1.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
 		<key>CareAhead.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>E70A152B2F133B9300197B0B</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E70A153A2F133B9700197B0B</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E70A15442F133B9700197B0B</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>
