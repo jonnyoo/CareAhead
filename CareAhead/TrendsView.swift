@@ -360,18 +360,6 @@ Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
     }
 
     private var fallbackTrendText: String {
-        let recent = points.compactMap { $0.value }
-        return baselineFallbackParagraph(
-            metricName: "breathing rate",
-            today: todayBreathing.map(Double.init),
-            unit: "rpm",
-            baseline: baselineStats,
-            recent: recent,
-            directionThreshold: 1
-        )
-    }
-
-    private var fallbackTrendText: String {
         let recent = points.compactMap { $0.value }.map { Double($0) }
         return baselineFallbackParagraph(
             metricName: "heart rate",
@@ -757,6 +745,18 @@ Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
 \(statsLine)
 \(recentLine)
 """
+    }
+
+    private var fallbackTrendText: String {
+        let recent = points.compactMap { $0.value }
+        return baselineFallbackParagraph(
+            metricName: "breathing rate",
+            today: todayBreathing.map(Double.init),
+            unit: "rpm",
+            baseline: baselineStats,
+            recent: recent,
+            directionThreshold: 1
+        )
     }
     
     var body: some View {
