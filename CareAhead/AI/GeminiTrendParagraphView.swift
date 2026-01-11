@@ -12,15 +12,23 @@ final class GeminiTrendParagraphViewModel: ObservableObject {
     func generateIfNeeded(prompt: String) {
         guard !didStart else { return }
         didStart = true
-
+        
         Task {
             await runBusy {
                 self.text = ""
                 self.errorText = ""
+                
 
-                let client = GeminiClient(settings: GeminiSettings.default)
+                guard let settings = try? GeminiSettings.load() else {
+                    self.errorText = "Could not load API Key from Secrets."
+                    return
+                }
+                
+                let client = GeminiClient(settings: settings)
+                // --- UPDATED SECTION END ---
+                
                 let response = try await client.generateText(prompt: prompt)
-
+                
                 self.text = response.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
