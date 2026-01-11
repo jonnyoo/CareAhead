@@ -11,7 +11,7 @@ struct ContentView: View {
             Group {
                 switch nav.selectedTab {
                 case 0:
-                    HomeView(selectedTab: $selectedTab)
+                    HomeView(selectedTab: $nav.selectedTab)
                 case 1:
                     MapView()
                 case 2:
@@ -21,7 +21,7 @@ struct ContentView: View {
                 case 4:
                     SharedView()
                 default:
-                    HomeView(selectedTab: $selectedTab)
+                    HomeView(selectedTab: $nav.selectedTab)
                 }
             }
             
