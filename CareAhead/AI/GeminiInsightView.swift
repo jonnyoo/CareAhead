@@ -1,25 +1,22 @@
 import SwiftUI
 import SwiftData
-import Combine
+import Charts
 
 @MainActor
 final class GeminiInsightViewModel: ObservableObject {
-    @Published var insightText: String = ""
+    @Published var sections: GeminiInsightSections? = nil
     @Published var errorText: String = ""
     @Published var isBusy: Bool = false
-    @Published var isRevealing: Bool = false
+    @Published var showText: Bool = false
 
     let settings: GeminiSettings = .default
-
-    private var revealTask: Task<Void, Never>?
 
     func generate(today: VitalSign, history: [VitalSign]) {
         Task {
             await self.runBusy {
-                self.revealTask?.cancel()
-                self.isRevealing = false
-                self.insightText = ""
+                self.sections = nil
                 self.errorText = ""
+                self.showText = false
 
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
@@ -27,37 +24,20 @@ final class GeminiInsightViewModel: ObservableObject {
 
                 let text = try await client.generateText(prompt: prompt)
 
-                // Smooth reveal: simulate text fading/typing in.
-                self.isRevealing = true
-                self.revealTask = Task { [weak self] in
-                    guard let self else { return }
-                    await self.revealText(text)
+                let parsed = GeminiInsightSections.parse(from: text)
+                self.sections = parsed ?? GeminiInsightSections(
+                    introduction: [text.trimmingCharacters(in: .whitespacesAndNewlines)],
+                    heartRateDiscussion: [],
+                    breathingRateDiscussion: [],
+                    finalThoughts: [],
+                    disclaimer: "Not medical advice."
+                )
+
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    self.showText = true
                 }
             }
         }
-    }
-
-    private func revealText(_ fullText: String) async {
-        // Reveal in chunks so it feels smooth without being too slow.
-        let scalars = Array(fullText.unicodeScalars)
-        let total = scalars.count
-
-        // Roughly finish in ~1.6s for typical responses.
-        let targetSteps = 90
-        let chunkSize = max(1, total / targetSteps)
-
-        var index = 0
-        while index < total {
-            if Task.isCancelled { return }
-            let next = min(total, index + chunkSize)
-            let slice = String(String.UnicodeScalarView(scalars[0..<next]))
-            self.insightText = slice
-            index = next
-            try? await Task.sleep(nanoseconds: 18_000_000) // ~18ms
-        }
-
-        self.insightText = fullText
-        self.isRevealing = false
     }
 
     private func runBusy(_ work: @escaping () async throws -> Void) async {
@@ -73,11 +53,36 @@ final class GeminiInsightViewModel: ObservableObject {
     }
 }
 
+struct GeminiInsightSections: Decodable {
+    let introduction: [String]
+    let heartRateDiscussion: [String]
+    let breathingRateDiscussion: [String]
+    let finalThoughts: [String]
+    let disclaimer: String?
+
+    static func parse(from raw: String) -> GeminiInsightSections? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let start = trimmed.firstIndex(of: "{"),
+              let end = trimmed.lastIndex(of: "}"),
+              start < end
+        else {
+            return nil
+        }
+
+        let json = String(trimmed[start...end])
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(GeminiInsightSections.self, from: data)
+    }
+}
+
 struct GeminiInsightView: View {
     // Get enough data for comparisons
     @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
 
     @StateObject private var model = GeminiInsightViewModel()
+
+    let heartRateSeries: [LiveMetricPoint]
+    let breathingRateSeries: [LiveMetricPoint]
 
     var autoGenerateOnAppear: Bool = false
     var isFullScreen: Bool = false
@@ -85,84 +90,74 @@ struct GeminiInsightView: View {
     @State private var didAutoGenerate: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if !isFullScreen {
-                HStack(spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
-
-                    Text("Today’s Insight")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.88))
-
-                    Spacer()
-
-                    if model.isBusy {
-                        ProgressView()
-                            .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
-                    }
-                }
-            }
-
+        VStack(alignment: .leading, spacing: 16) {
             let todayVital = latestTodayVitalSign
             if todayVital == nil {
-                Text("Run today’s video test to get an insight.")
-                    .foregroundStyle(.secondary)
-            } else {
-                if let todayVital {
-                    vitalsRow(todayVital)
-                        .padding(.top, 2)
+                insightCard {
+                    Text("Run today’s video test to get an insight.")
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(red: 0.45, green: 0.45, blue: 0.65))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 6)
+                }
+            } else if let todayVital {
+                vitalsRow(todayVital)
+                    .padding(.top, 2)
 
-                    // If not auto-generating (e.g., used as a card), allow a single manual generate.
-                    if !autoGenerateOnAppear && model.insightText.isEmpty {
-                        Button(model.isBusy ? "Generating…" : "Generate Insight") {
-                            model.generate(today: todayVital, history: historyForComparison)
+                if !model.errorText.isEmpty {
+                    insightCard {
+                        Text(model.errorText)
+                            .foregroundStyle(.red)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                    }
+                }
+
+                if model.isBusy && model.sections == nil {
+                    insightCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Generating insight…")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.85))
+                            ProgressView()
+                                .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
-                        .disabled(model.isBusy)
+                        .padding(.vertical, 6)
                     }
                 }
-            }
 
-            if !model.errorText.isEmpty {
-                Text(model.errorText)
-                    .foregroundStyle(.red)
-                    .font(.system(size: 14))
-            }
+                if let sections = model.sections {
+                    sectionCard(title: "Introduction", paragraphs: sections.introduction)
+                        .opacity(model.showText ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.35), value: model.showText)
 
-            if model.isBusy && model.insightText.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Generating insight…")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.78))
-                    ProgressView()
-                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    heartRateChartCard
+
+                    sectionCard(title: "Heart Rate", paragraphs: sections.heartRateDiscussion)
+                        .opacity(model.showText ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.35), value: model.showText)
+
+                    breathingRateChartCard
+
+                    sectionCard(title: "Breathing Rate", paragraphs: sections.breathingRateDiscussion)
+                        .opacity(model.showText ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.35), value: model.showText)
+
+                    sectionCard(
+                        title: "Final Thoughts",
+                        paragraphs: sections.finalThoughts + [sections.disclaimer].compactMap { $0 }
+                    )
+                    .opacity(model.showText ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.35), value: model.showText)
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
 
-            if !model.insightText.isEmpty {
-                Group {
-                    if let attributed = try? AttributedString(markdown: model.insightText) {
-                        Text(attributed)
-                    } else {
-                        Text(model.insightText)
+                if !autoGenerateOnAppear && model.sections == nil {
+                    Button(model.isBusy ? "Generating…" : "Generate Insight") {
+                        model.generate(today: todayVital, history: historyForComparison)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    .disabled(model.isBusy)
                 }
-                .textSelection(.enabled)
-                .font(.system(.body, design: .rounded))
-                .foregroundStyle(Color.black.opacity(0.88))
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .opacity(model.isRevealing ? 0.92 : 1.0)
-                .animation(.easeInOut(duration: 0.25), value: model.insightText)
             }
         }
         .padding(isFullScreen ? 0 : 16)
@@ -190,6 +185,138 @@ struct GeminiInsightView: View {
                let todayVital = latestTodayVitalSign {
                 self.didAutoGenerate = true
                 self.model.generate(today: todayVital, history: self.historyForComparison)
+            }
+        }
+    }
+
+    private func insightCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
+
+            content()
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func sectionCard(title: String, paragraphs: [String]) -> some View {
+        guard !paragraphs.isEmpty else {
+            return AnyView(EmptyView())
+        }
+
+        return AnyView(
+            insightCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(title)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+
+                    ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                        Text(paragraph)
+                            .font(.system(size: 16, weight: .regular, design: .rounded))
+                            .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.9))
+                            .lineSpacing(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        )
+    }
+
+    private var heartRateChartCard: some View {
+        chartCard(
+            title: "Heart Rate",
+            unit: "bpm",
+            tint: Color(red: 0.36, green: 0.78, blue: 0.7),
+            series: heartRateSeries,
+            yDomain: 40...140
+        )
+    }
+
+    private var breathingRateChartCard: some View {
+        chartCard(
+            title: "Breathing Rate",
+            unit: "rpm",
+            tint: Color(red: 0.7, green: 0.73, blue: 1),
+            series: breathingRateSeries,
+            yDomain: 8...30
+        )
+    }
+
+    private func chartCard(
+        title: String,
+        unit: String,
+        tint: Color,
+        series: [LiveMetricPoint],
+        yDomain: ClosedRange<Double>
+    ) -> some View {
+        insightCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(title)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+
+                    Spacer()
+
+                    if let last = series.last {
+                        Text("\(Int(last.value.rounded())) \(unit)")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    }
+                }
+
+                if series.isEmpty {
+                    Text("No live trace recorded.")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(red: 0.45, green: 0.45, blue: 0.65))
+                        .padding(.vertical, 6)
+                } else {
+                    Chart {
+                        ForEach(series) { point in
+                            LineMark(
+                                x: .value("t", point.t),
+                                y: .value("value", point.value)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                            .foregroundStyle(tint)
+
+                            AreaMark(
+                                x: .value("t", point.t),
+                                y: .value("value", point.value)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [tint.opacity(0.28), tint.opacity(0.02)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        }
+                    }
+                    .frame(height: 140)
+                    .chartYScale(domain: yDomain)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                            AxisValueLabel()
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { _ in
+                            AxisGridLine()
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.12))
+                            AxisValueLabel()
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.62))
+                        }
+                    }
+                }
             }
         }
     }
@@ -249,5 +376,5 @@ struct GeminiInsightView: View {
 }
 
 #Preview {
-    GeminiInsightView()
+    GeminiInsightView(heartRateSeries: [], breathingRateSeries: [])
 }

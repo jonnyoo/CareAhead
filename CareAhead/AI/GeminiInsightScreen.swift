@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct GeminiInsightScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,7 +10,7 @@ struct GeminiInsightScreen: View {
 
     var body: some View {
         ZStack {
-            Color("backgroundColor")
+            Color(red: 0.98, green: 0.985, blue: 1.0)
                 .ignoresSafeArea()
 
             Rectangle()
@@ -38,11 +37,12 @@ struct GeminiInsightScreen: View {
                     header
                         .padding(.top, 20)
 
-                    liveScanCharts
-
-                    insightCard {
-                        GeminiInsightView(autoGenerateOnAppear: true, isFullScreen: true)
-                    }
+                    GeminiInsightView(
+                        heartRateSeries: heartRateSeries,
+                        breathingRateSeries: breathingRateSeries,
+                        autoGenerateOnAppear: true,
+                        isFullScreen: true
+                    )
 
                     Spacer(minLength: 90)
                 }
@@ -76,124 +76,6 @@ struct GeminiInsightScreen: View {
         }
     }
 
-    private var liveScanCharts: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Live scan")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
-
-            if heartRateSeries.isEmpty && breathingRateSeries.isEmpty {
-                insightCard {
-                    Text("No live trace recorded. Run the video test to capture the live chart.")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(red: 0.45, green: 0.45, blue: 0.65))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                }
-            } else {
-                insightCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        liveLineChart(
-                            title: "Heart Rate",
-                            unit: "bpm",
-                            tint: Color(red: 0.36, green: 0.78, blue: 0.7),
-                            series: heartRateSeries,
-                            yDomain: 40...140
-                        )
-
-                        Divider().opacity(0.2)
-
-                        liveLineChart(
-                            title: "Breathing Rate",
-                            unit: "rpm",
-                            tint: Color(red: 0.7, green: 0.73, blue: 1),
-                            series: breathingRateSeries,
-                            yDomain: 8...30
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func insightCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
-                .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
-
-            content()
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func liveLineChart(
-        title: String,
-        unit: String,
-        tint: Color,
-        series: [LiveMetricPoint],
-        yDomain: ClosedRange<Double>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
-
-                Spacer()
-
-                if let last = series.last {
-                    Text("\(Int(last.value.rounded())) \(unit)")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
-                }
-            }
-
-            Chart {
-                ForEach(series) { point in
-                    LineMark(
-                        x: .value("t", point.t),
-                        y: .value("value", point.value)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .foregroundStyle(tint)
-
-                    AreaMark(
-                        x: .value("t", point.t),
-                        y: .value("value", point.value)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [tint.opacity(0.28), tint.opacity(0.02)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                }
-            }
-            .frame(height: 140)
-            .chartYScale(domain: yDomain)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                    AxisValueLabel()
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.6))
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading) { _ in
-                    AxisGridLine()
-                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.12))
-                    AxisValueLabel()
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.62))
-                }
-            }
-        }
-    }
 }
 
 #Preview {
