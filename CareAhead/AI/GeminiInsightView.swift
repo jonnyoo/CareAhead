@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import Combine
 
 @MainActor
 final class GeminiInsightViewModel: ObservableObject {
