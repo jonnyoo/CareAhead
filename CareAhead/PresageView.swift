@@ -143,7 +143,7 @@ struct PresageView: View {
         didSetupSDK = true
 
         // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
-        sdk.setApiKey("GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J")
+        sdk.setApiKey("DP31vRLDNV71bzySLqvHCal3WWC4mnjf2sIAl8Xs")
         sdk.setSmartSpectraMode(.continuous)
         sdk.setImageOutputEnabled(true)
         sdk.setCameraPosition(.front)
