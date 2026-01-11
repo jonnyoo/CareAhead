@@ -1007,51 +1007,51 @@ struct TrendPoint<Value>: Identifiable {
     var id: String { dayLabel }
 }
 
+fileprivate struct TrendStats {
+    let avg: Double
+    let low: Double
+    let high: Double
+    let stdDev: Double
+
+    static func compute(_ values: [Double]) -> TrendStats? {
+        guard !values.isEmpty else { return nil }
+        let avg = values.reduce(0, +) / Double(values.count)
+        let std = stdDev(values, mean: avg)
+        let band = normalBand(values)
+        return TrendStats(avg: avg, low: band.0, high: band.1, stdDev: std)
+    }
+
+    private static func stdDev(_ values: [Double], mean: Double) -> Double {
+        guard values.count >= 2 else { return 0 }
+        let variance = values
+            .map { ($0 - mean) * ($0 - mean) }
+            .reduce(0, +) / Double(values.count - 1)
+        return sqrt(variance)
+    }
+
+    private static func normalBand(_ values: [Double]) -> (Double, Double) {
+        let sorted = values.sorted()
+        if sorted.count >= 10 {
+            return (percentile(sorted, p: 0.15), percentile(sorted, p: 0.85))
+        }
+        return (sorted.first ?? 0, sorted.last ?? 0)
+    }
+
+    private static func percentile(_ sorted: [Double], p: Double) -> Double {
+        guard !sorted.isEmpty else { return 0 }
+        let clamped = min(1, max(0, p))
+        let idx = (Double(sorted.count - 1) * clamped)
+        let lower = Int(floor(idx))
+        let upper = Int(ceil(idx))
+        if lower == upper { return sorted[lower] }
+        let weight = idx - Double(lower)
+        return sorted[lower] * (1 - weight) + sorted[upper] * weight
+    }
+}
+
 // MARK: - SwiftData-backed series
 
 private extension TrendsView {
-    struct TrendStats {
-        let avg: Double
-        let low: Double
-        let high: Double
-        let stdDev: Double
-
-        static func compute(_ values: [Double]) -> TrendStats? {
-            guard !values.isEmpty else { return nil }
-            let avg = values.reduce(0, +) / Double(values.count)
-            let std = stdDev(values, mean: avg)
-            let band = normalBand(values)
-            return TrendStats(avg: avg, low: band.0, high: band.1, stdDev: std)
-        }
-
-        private static func stdDev(_ values: [Double], mean: Double) -> Double {
-            guard values.count >= 2 else { return 0 }
-            let variance = values
-                .map { ($0 - mean) * ($0 - mean) }
-                .reduce(0, +) / Double(values.count - 1)
-            return sqrt(variance)
-        }
-
-        private static func normalBand(_ values: [Double]) -> (Double, Double) {
-            let sorted = values.sorted()
-            if sorted.count >= 10 {
-                return (percentile(sorted, p: 0.15), percentile(sorted, p: 0.85))
-            }
-            return (sorted.first ?? 0, sorted.last ?? 0)
-        }
-
-        private static func percentile(_ sorted: [Double], p: Double) -> Double {
-            guard !sorted.isEmpty else { return 0 }
-            let clamped = min(1, max(0, p))
-            let idx = (Double(sorted.count - 1) * clamped)
-            let lower = Int(floor(idx))
-            let upper = Int(ceil(idx))
-            if lower == upper { return sorted[lower] }
-            let weight = idx - Double(lower)
-            return sorted[lower] * (1 - weight) + sorted[upper] * weight
-        }
-    }
-
     var todayVital: VitalSign? {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
