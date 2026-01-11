@@ -1,188 +1,249 @@
-//
-//  PresageView.swift
-//  CareAhead
-//
-//  Created by Michele Mazzetti on 2026-01-10.
-//
-
 import SwiftUI
+import AVFoundation
 import SmartSpectraSwiftSDK
 
 struct PresageView: View {
-    // 1. Create an observer for the SDK shared instance
+    @ObservedObject var processor = SmartSpectraVitalsProcessor.shared
     @ObservedObject var sdk = SmartSpectraSwiftSDK.shared
     
-    // UI State for Real-Time Readings
-    @State private var currentHeartRate: Double = 0.0
-    @State private var currentBreathingRate: Double = 0.0
+    // UI State
+    @State private var timeLeft = 20
+    @State private var isScanning = false
+    @State private var scanComplete = false
     
-    // Optional: toggle for the Face Mesh debug overlay
-    @State private var isFaceMeshEnabled = false
+    // Live Data Storage
+    @State private var capturedHeartRate: Double = 0.0
+    @State private var capturedBreathingRate: Double = 0.0
     
-    init() {
-        // MARK: - Basic Configuration
-        let apiKey = "GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J"
-        sdk.setApiKey(apiKey)
-        
-        // MARK: - Advanced Configuration
-        // sdk.setSmartSpectraMode(.continuous)
-        // sdk.setMeasurementDuration(30.0)
-        // sdk.setCameraPosition(.front)
-    }
+    // Face Detection State
+    @State private var hasFace: Bool = false
     
-    var body: some View {
-        ZStack {
-            // MARK: - 1. Camera Layer (Safe for Canvas)
-            #if targetEnvironment(simulator)
-                // Fallback for Xcode Canvas / Simulator
-                MockSmartSpectraView()
-            #else
-                // Real SDK for Physical Device
-                SmartSpectraView()
-            #endif
-            
-            // MARK: - 2. Face Mesh Overlay (Debug)
-            if isFaceMeshEnabled {
-                FaceMeshLayer(sdk: sdk)
-            }
-            
-            // MARK: - 3. UI Overlay (Vitals Display)
-            VStack {
-                Spacer()
-                
-                // Heart Rate Card
-                HStack(spacing: 20) {
-                    VitalsCard(
-                        title: "HEART RATE",
-                        value: "\(Int(currentHeartRate))",
-                        unit: "BPM",
-                        icon: "heart.fill",
-                        color: .red
-                    )
-                    
-                    VitalsCard(
-                        title: "BREATHING",
-                        value: "\(Int(currentBreathingRate))",
-                        unit: "RPM",
-                        icon: "wind",
-                        color: .blue
-                    )
-                }
-                .padding(.bottom, 20)
-                
-                // Toggle Button
-                Button(action: { isFaceMeshEnabled.toggle() }) {
-                    Text(isFaceMeshEnabled ? "Hide Mesh" : "Show Mesh")
-                        .font(.caption)
-                        .padding(8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(8)
-                }
-                .padding(.bottom, 40)
-            }
-        }
-        // MARK: - Data Connection
-        // Connects the SDK data stream to our UI variables
-        .onChange(of: sdk.metricsBuffer) { oldValue, newBuffer in
-            if let metrics = newBuffer {
-                // Update Heart Rate (Get last known value)
-                if let lastPulse = metrics.pulse.rate.last {
-                    currentHeartRate = lastPulse.value
-                }
-                // Update Breathing Rate
-                if let lastBreath = metrics.breathing.rate.last {
-                    currentBreathingRate = lastBreath.value
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Helper Views
-
-// A simulated view so you can design in Canvas without crashing
-struct MockSmartSpectraView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            VStack {
-                Image(systemName: "face.dashed")
+            // MARK: - 1. Custom Camera Feed
+            if let frame = processor.imageOutput {
+                Image(uiImage: frame)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: 200)
-                    .foregroundColor(.gray.opacity(0.5))
-                Text("Simulating Camera...")
-                    .foregroundColor(.gray)
-                    .padding(.top)
-            }
-        }
-    }
-}
-
-// Reusable Card Component for Vitals
-struct VitalsCard: View {
-    let title: String
-    let value: String
-    let unit: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.gray)
+                    .aspectRatio(contentMode: .fill)
+                    .edgesIgnoringSafeArea(.all)
+                    .scaleEffect(x: -1, y: 1) // Mirror effect
+            } else {
+                VStack {
+                    ProgressView()
+                        .tint(.white)
+                    Text("Starting Camera...")
+                        .foregroundColor(.white)
+                        .padding(.top, 10)
+                }
             }
             
-            HStack(alignment: .bottom) {
-                Text(value)
-                    .font(.system(size: 32, weight: .bold))
-                Text(unit)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 6)
-            }
-        }
-        .padding()
-        .background(Color(UIColor.systemBackground).opacity(0.9))
-        .cornerRadius(12)
-        .shadow(radius: 5)
-    }
-}
-
-// Extracted Face Mesh Logic to keep main view clean
-struct FaceMeshLayer: View {
-    @ObservedObject var sdk: SmartSpectraSwiftSDK
-    
-    var body: some View {
-        if let edgeMetrics = sdk.edgeMetrics,
-           edgeMetrics.hasFace,
-           !edgeMetrics.face.landmarks.isEmpty,
-           let latestLandmarks = edgeMetrics.face.landmarks.last {
-            
-            GeometryReader { geometry in
-                ZStack {
-                    ForEach(Array(latestLandmarks.value.enumerated()), id: \.offset) { index, landmark in
+            // MARK: - 2. UI Overlay
+            VStack {
+                // Face Status Indicator (Always Visible now)
+                if !scanComplete {
+                    HStack {
                         Circle()
-                            .fill(Color.green)
-                            .frame(width: 3, height: 3)
-                            .position(
-                                x: CGFloat(landmark.x) * geometry.size.width / 1280.0,
-                                y: CGFloat(landmark.y) * geometry.size.height / 1280.0
-                            )
+                            .fill(hasFace ? Color.green : Color.red)
+                            .frame(width: 10, height: 10)
+                        
+                        Text(hasFace ? "FACE DETECTED" : "LOOK AT CAMERA")
+                            .font(.headline)
+                            .foregroundColor(hasFace ? .green : .red)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(.black.opacity(0.6))
+                            .cornerRadius(20)
                     }
+                    .padding(.top, 60)
+                }
+                
+                // Countdown (Only visible when scanning)
+                if isScanning {
+                    Text("\(timeLeft)s")
+                        .font(.system(size: 60, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.top, 20)
+                        .shadow(radius: 4)
+                }
+                
+                Spacer()
+                
+                // Bottom: Start Button
+                if !isScanning && !scanComplete {
+                    Button(action: startScan) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 4)
+                                .frame(width: 80, height: 80)
+                            Circle()
+                                .fill(hasFace ? Color.red : Color.gray)
+                                .frame(width: 70, height: 70)
+                        }
+                    }
+                    .disabled(!hasFace) // Force user to have face ready
+                    .padding(.bottom, 100)
+                    
+                    Text(hasFace ? "Tap to Start" : "Position Face to Start")
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.bottom, 20)
+                        .offset(y: -90)
+                    
+                } else if isScanning {
+                    Text("Hold Still...")
+                        .font(.headline)
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.bottom, 100)
+                }
+            }
+            
+            // MARK: - 3. Results Popup
+            if scanComplete {
+                Color.black.opacity(0.85).ignoresSafeArea()
+                
+                VStack(spacing: 25) {
+                    Text("Measurement Complete")
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    HStack(spacing: 40) {
+                        VitalsResultRow(
+                            title: "Heart Rate",
+                            value: capturedHeartRate > 0 ? "\(Int(capturedHeartRate))" : "--",
+                            unit: "BPM"
+                        )
+                        VitalsResultRow(
+                            title: "Breathing",
+                            value: capturedBreathingRate > 0 ? "\(Int(capturedBreathingRate))" : "--",
+                            unit: "RPM"
+                        )
+                    }
+                    
+                    Button(action: resetScan) {
+                        Text("Done")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                    }
+                    .padding(.top, 10)
+                }
+                .padding(30)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(20)
+                .padding(.horizontal, 40)
+            }
+        }
+        .onAppear { setupSDK() }
+        .onDisappear { stopCameraCompletely() }
+        
+        // MARK: - 4. Live Data Loop
+        .onChange(of: sdk.metricsBuffer) { oldValue, newBuffer in
+            // Always update face status (Silent Recording makes this active immediately)
+            updateFaceStatus()
+            
+            // Only capture Vitals if "Start" has been pressed
+            if isScanning, let metrics = newBuffer {
+                if let lastPulse = metrics.pulse.rate.last, lastPulse.value > 0 {
+                    capturedHeartRate = Double(lastPulse.value)
+                }
+                if let lastBreath = metrics.breathing.rate.last, lastBreath.value > 0 {
+                    capturedBreathingRate = Double(lastBreath.value)
                 }
             }
         }
     }
+    
+    // MARK: - Logic
+    func setupSDK() {
+        let apiKey = "GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J"
+        sdk.setApiKey(apiKey)
+        sdk.setSmartSpectraMode(.continuous)
+        sdk.setImageOutputEnabled(true)
+        sdk.setCameraPosition(.front)
+        
+        // CHANGE: Start EVERYTHING immediately.
+        // This wakes up the Face Detector so the badge works instantly.
+        processor.startProcessing()
+        processor.startRecording()
+        
+        // Backup Timer to ensure face badge updates even if buffer is slow
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if self.processor.imageOutput == nil { return }
+            self.updateFaceStatus()
+        }
+    }
+    
+    func startScan() {
+        capturedHeartRate = 0
+        capturedBreathingRate = 0
+        timeLeft = 20
+        isScanning = true
+        scanComplete = false
+        
+        // Note: We don't need to call startRecording() here because it's already running!
+        // We just start the countdown.
+        
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            if self.timeLeft > 0 {
+                self.timeLeft -= 1
+            } else {
+                timer.invalidate()
+                self.finishScan()
+            }
+        }
+    }
+    
+    func updateFaceStatus() {
+        if let edge = sdk.edgeMetrics {
+            if self.hasFace != edge.hasFace {
+                withAnimation { self.hasFace = edge.hasFace }
+            }
+        }
+    }
+    
+    func stopCameraCompletely() {
+        // Called when you leave the page
+        processor.stopProcessing()
+        processor.stopRecording()
+        isScanning = false
+    }
+    
+    func finishScan() {
+        // We stop recording here so the data "freezes" for the results page
+        processor.stopRecording()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation { scanComplete = true }
+        }
+    }
+    
+    func resetScan() {
+        scanComplete = false
+        timeLeft = 20
+        isScanning = false
+        
+        // Turn the engine back on for the next "Silent Record" preview
+        processor.startRecording()
+    }
 }
 
-// MARK: - Preview Logic
-#Preview {
-    PresageView()
+struct VitalsResultRow: View {
+    let title: String
+    let value: String
+    let unit: String
+    
+    var body: some View {
+        VStack(spacing: 5) {
+            Text(title).font(.caption).fontWeight(.semibold).foregroundColor(.gray)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: 36, weight: .bold)).foregroundColor(.black)
+                Text(unit).font(.caption).foregroundColor(.gray)
+            }
+        }
+    }
 }
