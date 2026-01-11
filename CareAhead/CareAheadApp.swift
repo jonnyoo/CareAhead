@@ -12,6 +12,7 @@ import SwiftData
 struct CareAheadApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            Item.self,
             VitalSign.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

@@ -1,7 +1,9 @@
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
     @State private var selectedTab: Int = 0
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         ZStack {
@@ -28,6 +30,9 @@ struct ContentView: View {
                 Spacer()
                 TabBarView(selectedTab: $selectedTab)
             }
+        }
+        .task {
+            try? VitalSignSeeder.seedIfNeeded(modelContext: modelContext)
         }
     }
 }

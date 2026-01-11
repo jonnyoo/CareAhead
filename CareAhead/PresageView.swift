@@ -1,8 +1,11 @@
 import SwiftUI
 import AVFoundation
 import SmartSpectraSwiftSDK
+import SwiftData
 
 struct PresageView: View {
+    @Environment(\.modelContext) private var modelContext
+
     @ObservedObject var processor = SmartSpectraVitalsProcessor.shared
     @ObservedObject var sdk = SmartSpectraSwiftSDK.shared
     
@@ -14,6 +17,8 @@ struct PresageView: View {
     // Live Data Storage
     @State private var capturedHeartRate: Double = 0.0
     @State private var capturedBreathingRate: Double = 0.0
+
+    @State private var didSaveVitalSign = false
     
     // Face Detection State
     @State private var hasFace: Bool = false
@@ -179,6 +184,7 @@ struct PresageView: View {
     }
     
     func startScan() {
+        didSaveVitalSign = false
         capturedHeartRate = 0
         capturedBreathingRate = 0
         timeLeft = 20
@@ -219,6 +225,20 @@ struct PresageView: View {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation { scanComplete = true }
+
+            // Persist today's measurement (so Trends shows Today once a test is done).
+            if !didSaveVitalSign,
+               capturedHeartRate > 0,
+               capturedBreathingRate > 0 {
+                let vitalSign = VitalSign(
+                    timestamp: Date(),
+                    heartRate: Int(capturedHeartRate.rounded()),
+                    breathingRate: Int(capturedBreathingRate.rounded())
+                )
+                modelContext.insert(vitalSign)
+                try? modelContext.save()
+                didSaveVitalSign = true
+            }
         }
     }
     
