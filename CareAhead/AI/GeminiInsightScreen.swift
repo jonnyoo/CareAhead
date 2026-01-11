@@ -70,8 +70,15 @@ struct GeminiInsightScreen: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
                     .padding(10)
-                    .background(.thinMaterial)
-                    .clipShape(Circle())
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.92))
+                            .overlay(
+                                Circle()
+                                    .stroke(Color(red: 0.45, green: 0.48, blue: 0.75).opacity(0.18), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
+                    )
             }
         }
     }

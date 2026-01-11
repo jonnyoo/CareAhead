@@ -116,11 +116,12 @@ Return ONLY valid JSON (no markdown, no backticks, no extra text). Schema:
     "introduction": "1–2 short paragraphs",
     "heartRateDiscussion": "1–2 short paragraphs",
     "breathingRateDiscussion": "1–2 short paragraphs",
-    "finalThoughts": "1 short paragraph",
+    "finalThoughts": "1 short paragraph with 1 gentle actionable next step",
   "disclaimer": "Not medical advice."
 }
 
 Tone: calm, friendly, and specific to their baseline (use the averages/ranges above).
+All fields must be present and non-empty. Do NOT put the disclaimer inside finalThoughts.
 """
     }
 }

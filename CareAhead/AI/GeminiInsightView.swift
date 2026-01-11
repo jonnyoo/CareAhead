@@ -26,13 +26,11 @@ final class GeminiInsightViewModel: ObservableObject {
                 let text = try await client.generateText(prompt: prompt)
 
                 let parsed = GeminiInsightSections.parse(from: text)
-                self.sections = parsed ?? GeminiInsightSections(
-                    introduction: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                    heartRateDiscussion: "",
-                    breathingRateDiscussion: "",
-                    finalThoughts: "",
-                    disclaimer: "Not medical advice."
-                )
+                if let parsed {
+                    self.sections = parsed.normalized()
+                } else {
+                    self.sections = GeminiInsightSections.fallback(from: text).normalized()
+                }
 
                 withAnimation(.easeInOut(duration: 0.35)) {
                     self.showText = true
@@ -60,6 +58,50 @@ struct GeminiInsightSections: Decodable {
     let breathingRateDiscussion: String
     let finalThoughts: String
     let disclaimer: String?
+
+    init(
+        introduction: String,
+        heartRateDiscussion: String,
+        breathingRateDiscussion: String,
+        finalThoughts: String,
+        disclaimer: String?
+    ) {
+        self.introduction = introduction
+        self.heartRateDiscussion = heartRateDiscussion
+        self.breathingRateDiscussion = breathingRateDiscussion
+        self.finalThoughts = finalThoughts
+        self.disclaimer = disclaimer
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case introduction
+        case heartRateDiscussion
+        case breathingRateDiscussion
+        case finalThoughts
+        case disclaimer
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.introduction = (try? Self.decodeStringOrStringArray(c, forKey: .introduction)) ?? ""
+        self.heartRateDiscussion = (try? Self.decodeStringOrStringArray(c, forKey: .heartRateDiscussion)) ?? ""
+        self.breathingRateDiscussion = (try? Self.decodeStringOrStringArray(c, forKey: .breathingRateDiscussion)) ?? ""
+        self.finalThoughts = (try? Self.decodeStringOrStringArray(c, forKey: .finalThoughts)) ?? ""
+        self.disclaimer = try? c.decode(String.self, forKey: .disclaimer)
+    }
+
+    private static func decodeStringOrStringArray(
+        _ c: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) throws -> String {
+        if let string = try? c.decode(String.self, forKey: key) {
+            return string
+        }
+        if let array = try? c.decode([String].self, forKey: key) {
+            return array.joined(separator: "\n\n")
+        }
+        return ""
+    }
 
     static func parse(from raw: String) -> GeminiInsightSections? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -91,6 +133,56 @@ struct GeminiInsightSections: Decodable {
 
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(GeminiInsightSections.self, from: data)
+    }
+
+    func normalized() -> GeminiInsightSections {
+        func clean(_ s: String) -> String {
+            s.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let intro = clean(introduction)
+        let hr = clean(heartRateDiscussion)
+        let br = clean(breathingRateDiscussion)
+        let final = clean(finalThoughts)
+
+        return GeminiInsightSections(
+            introduction: intro.isEmpty ? "Here’s a quick, baseline-aware read of today’s scan." : intro,
+            heartRateDiscussion: hr.isEmpty ? "Your heart rate trace looks fairly steady overall. Small rises and dips are common during a camera scan (posture, breathing, tiny movements, lighting)." : hr,
+            breathingRateDiscussion: br.isEmpty ? "Breathing rate estimates can vary more than heart rate in short clips. What matters most is the overall level and whether the trace stabilizes." : br,
+            finalThoughts: final.isEmpty ? "For the cleanest comparison, run tomorrow’s test at a similar time, sitting still, with consistent lighting." : final,
+            disclaimer: (disclaimer?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? disclaimer : "Not medical advice."
+        )
+    }
+
+    static func fallback(from raw: String) -> GeminiInsightSections {
+        // Last-resort: try to pull fields out even if JSON isn't fully valid.
+        func extract(_ key: String) -> String? {
+            // "key": "..."
+            let pattern = "\\\"\\(key)\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"])*)\\\""
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+            let range = NSRange(raw.startIndex..<raw.endIndex, in: raw)
+            guard let match = regex.firstMatch(in: raw, range: range), match.numberOfRanges >= 2,
+                  let r = Range(match.range(at: 1), in: raw)
+            else { return nil }
+            let captured = String(raw[r])
+                .replacingOccurrences(of: "\\n", with: "\n")
+                .replacingOccurrences(of: "\\\"", with: "\"")
+            return captured
+        }
+
+        let intro = extract("introduction") ?? raw
+        let hr = extract("heartRateDiscussion") ?? ""
+        let br = extract("breathingRateDiscussion") ?? ""
+        let final = extract("finalThoughts") ?? ""
+        let disc = extract("disclaimer")
+
+        return GeminiInsightSections(
+            introduction: intro,
+            heartRateDiscussion: hr,
+            breathingRateDiscussion: br,
+            finalThoughts: final,
+            disclaimer: disc
+        )
     }
 
     static func splitParagraphs(_ text: String) -> [String] {
