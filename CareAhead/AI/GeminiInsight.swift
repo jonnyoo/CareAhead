@@ -51,7 +51,7 @@ enum GeminiInsightPromptBuilder {
 
         let todaySleepLine: String = {
             if let hours = input.today.sleepHours {
-                return "- Sleep: \(String(format: \"%.1f\", hours)) hours"
+                return "- Sleep: \(String(format: "%.1f", hours)) hours"
             }
             return "- Sleep: (no data)"
         }()
@@ -61,7 +61,7 @@ enum GeminiInsightPromptBuilder {
             let minLine: String
             let maxLine: String
             if let min = summary.minSleepHours, let max = summary.maxSleepHours {
-                minLine = "- Sleep range: \(String(format: \"%.1f\", min))–\(String(format: \"%.1f\", max)) hours"
+                minLine = "- Sleep range: \(String(format: "%.1f", min))–\(String(format: "%.1f", max)) hours"
                 maxLine = ""
             } else {
                 minLine = ""
@@ -69,7 +69,7 @@ enum GeminiInsightPromptBuilder {
             }
 
             return """
-- Avg sleep: \(String(format: \"%.1f\", avg)) hours
+- Avg sleep: \(String(format: "%.1f", avg)) hours
 \(minLine)
 \(maxLine)
 """
@@ -84,7 +84,7 @@ enum GeminiInsightPromptBuilder {
             .map { vital -> String in
                 let day = iso.string(from: calendar.startOfDay(for: vital.timestamp))
                 if let sleep = vital.sleepHours {
-                    return "- \(day): HR \(vital.heartRate) bpm, BR \(vital.breathingRate) rpm, Sleep \(String(format: \"%.1f\", sleep)) h"
+                    return "- \(day): HR \(vital.heartRate) bpm, BR \(vital.breathingRate) rpm, Sleep \(String(format: "%.1f", sleep)) h"
                 }
                 return "- \(day): HR \(vital.heartRate) bpm, BR \(vital.breathingRate) rpm"
             }
