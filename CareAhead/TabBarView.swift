@@ -11,7 +11,7 @@ struct TabBarView: View {
             TabBarItemView(icon: "map.fill", isSelected: selectedTab == 1)
                 .onTapGesture { selectedTab = 1 }
             
-            TabBarItemView(icon: "stethoscope.fill", isSelected: selectedTab == 2)
+            TabBarItemView(icon: "cross.fill", isSelected: selectedTab == 2)
                 .onTapGesture { selectedTab = 2 }
             
             TabBarItemView(icon: "waveform.path.ecg", isSelected: selectedTab == 3)

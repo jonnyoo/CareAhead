@@ -71,7 +71,7 @@ struct TrendsView: View {
                     
                         // Line Chart - 7 days
                         Chart {
-                            ForEach(heartRateData) { data in
+                            ForEach(TrendSampleData.heartRateData()) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
                                     y: .value("BPM", data.steps)
@@ -126,7 +126,7 @@ struct TrendsView: View {
                         
                         // Line Chart - 7 days
                         Chart {
-                            ForEach(breathingRateData) { data in
+                            ForEach(TrendSampleData.breathingRateData()) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
                                     y: .value("RPM", data.rpm)
@@ -182,7 +182,7 @@ struct TrendsView: View {
                         
                         // Bar Chart - 7 days
                         Chart {
-                            ForEach(sleepData) { data in
+                            ForEach(TrendSampleData.sleepData()) { data in
                                 BarMark(
                                     x: .value("Day", data.day),
                                     y: .value("Hours", data.hours)
@@ -236,52 +236,71 @@ struct TrendsView: View {
 }
 
 struct BreathingRateData: Identifiable {
-    let id = UUID()
     let day: String
     let rpm: Double
-}
 
-let breathingRateData = [
-    BreathingRateData(day: "Mon", rpm: 14),
-    BreathingRateData(day: "Tue", rpm: 16),
-    BreathingRateData(day: "Wed", rpm: 15),
-    BreathingRateData(day: "Thu", rpm: 17),
-    BreathingRateData(day: "Fri", rpm: 14),
-    BreathingRateData(day: "Sat", rpm: 18),
-    BreathingRateData(day: "Sun", rpm: 16)
-]
+    var id: String { day }
+}
 
 struct HeartRateData: Identifiable {
-    let id = UUID()
     let day: String
     let steps: Int
-}
 
-let heartRateData = [
-    HeartRateData(day: "Mon", steps: 80),
-    HeartRateData(day: "Tue", steps: 60),
-    HeartRateData(day: "Wed", steps: 100),
-    HeartRateData(day: "Thu", steps: 89),
-    HeartRateData(day: "Fri", steps: 79),
-    HeartRateData(day: "Sat", steps: 77),
-    HeartRateData(day: "Sun", steps: 99)
-]
+    var id: String { day }
+}
 
 struct SleepData: Identifiable {
-    let id = UUID()
     let day: String
     let hours: Double
+
+    var id: String { day }
 }
 
-let sleepData = [
-    SleepData(day: "Mon", hours: 7.5),
-    SleepData(day: "Tue", hours: 6.8),
-    SleepData(day: "Wed", hours: 8.2),
-    SleepData(day: "Thu", hours: 7.0),
-    SleepData(day: "Fri", hours: 7.8),
-    SleepData(day: "Sat", hours: 6.5),
-    SleepData(day: "Sun", hours: 8.5)
-]
+enum TrendSampleData {
+    private static let calendar = Calendar.current
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE" // Mon/Tue/...
+        return formatter
+    }()
+
+    static func labelsLastNDays(count: Int = 7, referenceDate: Date = Date()) -> [String] {
+        guard count > 0 else { return [] }
+
+        let startOfToday = calendar.startOfDay(for: referenceDate)
+
+        // Order: oldest -> newest, so the right-most point is "Today".
+        return (0..<count).map { index in
+            let daysAgo = (count - 1) - index
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: startOfToday) ?? startOfToday
+
+            if calendar.isDate(date, inSameDayAs: startOfToday) {
+                return "Today"
+            }
+
+            return weekdayFormatter.string(from: date)
+        }
+    }
+
+    static func heartRateData(referenceDate: Date = Date()) -> [HeartRateData] {
+        let values: [Int] = [80, 60, 100, 89, 79, 77, 99]
+        let labels = labelsLastNDays(count: values.count, referenceDate: referenceDate)
+        return zip(labels, values).map { HeartRateData(day: $0.0, steps: $0.1) }
+    }
+
+    static func breathingRateData(referenceDate: Date = Date()) -> [BreathingRateData] {
+        let values: [Double] = [14, 16, 15, 17, 14, 18, 16]
+        let labels = labelsLastNDays(count: values.count, referenceDate: referenceDate)
+        return zip(labels, values).map { BreathingRateData(day: $0.0, rpm: $0.1) }
+    }
+
+    static func sleepData(referenceDate: Date = Date()) -> [SleepData] {
+        let values: [Double] = [7.5, 6.8, 8.2, 7.0, 7.8, 6.5, 8.5]
+        let labels = labelsLastNDays(count: values.count, referenceDate: referenceDate)
+        return zip(labels, values).map { SleepData(day: $0.0, hours: $0.1) }
+    }
+}
 
 // Detail Views
 struct HeartRateDetailView: View {
@@ -300,7 +319,7 @@ struct HeartRateDetailView: View {
                         .padding(.horizontal, 24)
                     VStack(spacing: 16) {
                         Chart {
-                            ForEach(heartRateData) { data in
+                            ForEach(TrendSampleData.heartRateData()) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
                                     y: .value("BPM", data.steps)
@@ -369,7 +388,7 @@ struct BreathingRateDetailView: View {
                         .padding(.horizontal, 24)
                     VStack(spacing: 16) {
                         Chart {
-                            ForEach(breathingRateData) { data in
+                            ForEach(TrendSampleData.breathingRateData()) { data in
                                 LineMark(
                                     x: .value("Day", data.day),
                                     y: .value("RPM", data.rpm)
@@ -444,7 +463,7 @@ struct SleepDetailView: View {
                         
                         VStack(spacing: 16) {
                             Chart {
-                                ForEach(sleepData) { data in
+                                ForEach(TrendSampleData.sleepData()) { data in
                                     BarMark(
                                         x: .value("Day", data.day),
                                         y: .value("Hours", data.hours)
