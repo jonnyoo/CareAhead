@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		473D8E1D2F13F9AA0094C964 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 473D8E1C2F13F9AA0094C964 /* Config.xcconfig */; };
 		47BA6E842F134EFA00565AB0 /* SmartSpectraSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 47BA6E832F134EFA00565AB0 /* SmartSpectraSwiftSDK */; };
 /* End PBXBuildFile section */
 
@@ -28,15 +29,29 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		473D8E1C2F13F9AA0094C964 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		E70A152C2F133B9300197B0B /* CareAhead.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CareAhead.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E70A153B2F133B9700197B0B /* CareAheadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CareAheadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E70A15452F133B9700197B0B /* CareAheadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CareAheadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		473D8E1F2F13FA420094C964 /* Exceptions for "CareAhead" folder in "CareAhead" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E70A152B2F133B9300197B0B /* CareAhead */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E70A152E2F133B9300197B0B /* CareAhead */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				473D8E1F2F13FA420094C964 /* Exceptions for "CareAhead" folder in "CareAhead" target */,
+			);
 			path = CareAhead;
 			sourceTree = "<group>";
 		};
@@ -88,6 +103,7 @@
 		E70A15232F133B9300197B0B = {
 			isa = PBXGroup;
 			children = (
+				473D8E1C2F13F9AA0094C964 /* Config.xcconfig */,
 				E70A152E2F133B9300197B0B /* CareAhead */,
 				E70A153E2F133B9700197B0B /* CareAheadTests */,
 				E70A15482F133B9700197B0B /* CareAheadUITests */,
@@ -232,6 +248,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				473D8E1D2F13F9AA0094C964 /* Config.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -291,6 +308,7 @@
 /* Begin XCBuildConfiguration section */
 		E70A154D2F133B9700197B0B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 473D8E1C2F13F9AA0094C964 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -355,6 +373,7 @@
 		};
 		E70A154E2F133B9700197B0B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 473D8E1C2F13F9AA0094C964 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -418,9 +437,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M5YR53CQW2;
+				DEVELOPMENT_TEAM = WC4S75R4KP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CareAhead/Info.plist;
 				INFOPLIST_KEY_GeminiApiKey = "$(GEMINI_API_KEY)";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find nearby healthcare providers.";
@@ -435,7 +455,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathan.CareAhead;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathan.CareAhead1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -456,9 +476,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M5YR53CQW2;
+				DEVELOPMENT_TEAM = WC4S75R4KP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CareAhead/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to measure vitals.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find nearby healthcare providers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -471,7 +492,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathan.CareAhead;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathan.CareAhead1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

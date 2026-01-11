@@ -18,23 +18,21 @@ final class GeminiInsightViewModel: ObservableObject {
                 self.sections = nil
                 self.errorText = ""
                 self.showText = false
-
+                
+                // 1. Securely load settings inside the task
+                guard let settings = try? GeminiSettings.load() else {
+                    self.errorText = "Could not load API Key from Secrets."
+                    return
+                }
+                
                 let input = GeminiInsightInput(today: today, history: history)
                 let prompt = GeminiInsightPromptBuilder.build(input: input)
-                let client = GeminiClient(settings: self.settings)
-
+                
+                // 2. Use the local 'settings' variable here
+                let client = GeminiClient(settings: settings)
+                
                 let text = try await client.generateText(prompt: prompt)
-
-                let parsed = GeminiInsightSections.parse(from: text)
-                if let parsed {
-                    self.sections = parsed.normalized()
-                } else {
-                    self.sections = GeminiInsightSections.fallback(from: text).normalized()
-                }
-
-                withAnimation(.easeInOut(duration: 0.35)) {
-                    self.showText = true
-                }
+                
             }
         }
     }

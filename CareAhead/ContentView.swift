@@ -31,9 +31,6 @@ struct ContentView: View {
                 TabBarView(selectedTab: $nav.selectedTab)
             }
         }
-        .task {
-            try? VitalSignSeeder.seedIfNeeded(modelContext: modelContext)
-        }
     }
 }
 

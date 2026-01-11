@@ -1,0 +1,11 @@
+//
+//  Config.xcconfig
+//  CareAhead
+//
+//  Created by Michele Mazzetti on 2026-01-11.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
+
+GEMINI_API_KEY = AIzaSyBb6-JgEb1JcFF7wMEX9aJm3cQCfTO_IKQ
