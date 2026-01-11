@@ -27,10 +27,10 @@ final class GeminiInsightViewModel: ObservableObject {
 
                 let parsed = GeminiInsightSections.parse(from: text)
                 self.sections = parsed ?? GeminiInsightSections(
-                    introduction: [text.trimmingCharacters(in: .whitespacesAndNewlines)],
-                    heartRateDiscussion: [],
-                    breathingRateDiscussion: [],
-                    finalThoughts: [],
+                    introduction: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    heartRateDiscussion: "",
+                    breathingRateDiscussion: "",
+                    finalThoughts: "",
                     disclaimer: "Not medical advice."
                 )
 
@@ -55,10 +55,10 @@ final class GeminiInsightViewModel: ObservableObject {
 }
 
 struct GeminiInsightSections: Decodable {
-    let introduction: [String]
-    let heartRateDiscussion: [String]
-    let breathingRateDiscussion: [String]
-    let finalThoughts: [String]
+    let introduction: String
+    let heartRateDiscussion: String
+    let breathingRateDiscussion: String
+    let finalThoughts: String
     let disclaimer: String?
 
     static func parse(from raw: String) -> GeminiInsightSections? {
@@ -70,9 +70,37 @@ struct GeminiInsightSections: Decodable {
             return nil
         }
 
-        let json = String(trimmed[start...end])
+        var json = String(trimmed[start...end])
+
+        // Common model quirks: smart quotes, stray code fences, trailing commas.
+        json = json
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Remove trailing commas before } or ]
+        json = json.replacingOccurrences(
+            of: ",\\s*([}\\]])",
+            with: "$1",
+            options: [.regularExpression]
+        )
+
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(GeminiInsightSections.self, from: data)
+    }
+
+    static func splitParagraphs(_ text: String) -> [String] {
+        text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .split(whereSeparator: { $0.isEmpty })
+            .map { $0.joined(separator: "\n") }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
 
@@ -127,25 +155,25 @@ struct GeminiInsightView: View {
                 }
 
                 if let sections = model.sections {
-                    sectionCard(title: "Introduction", paragraphs: sections.introduction)
+                    sectionCard(title: "Introduction", paragraphs: GeminiInsightSections.splitParagraphs(sections.introduction))
                         .opacity(model.showText ? 1 : 0)
                         .animation(.easeInOut(duration: 0.35), value: model.showText)
 
                     heartRateChartCard
 
-                    sectionCard(title: "Heart Rate", paragraphs: sections.heartRateDiscussion)
+                    sectionCard(title: "Heart Rate", paragraphs: GeminiInsightSections.splitParagraphs(sections.heartRateDiscussion))
                         .opacity(model.showText ? 1 : 0)
                         .animation(.easeInOut(duration: 0.35), value: model.showText)
 
                     breathingRateChartCard
 
-                    sectionCard(title: "Breathing Rate", paragraphs: sections.breathingRateDiscussion)
+                    sectionCard(title: "Breathing Rate", paragraphs: GeminiInsightSections.splitParagraphs(sections.breathingRateDiscussion))
                         .opacity(model.showText ? 1 : 0)
                         .animation(.easeInOut(duration: 0.35), value: model.showText)
 
                     sectionCard(
                         title: "Final Thoughts",
-                        paragraphs: sections.finalThoughts + [sections.disclaimer].compactMap { $0 }
+                        paragraphs: GeminiInsightSections.splitParagraphs(sections.finalThoughts) + [sections.disclaimer].compactMap { $0 }
                     )
                     .opacity(model.showText ? 1 : 0)
                     .animation(.easeInOut(duration: 0.35), value: model.showText)

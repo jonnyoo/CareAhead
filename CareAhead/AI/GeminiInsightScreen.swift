@@ -9,7 +9,7 @@ struct GeminiInsightScreen: View {
     let breathingRateSeries: [LiveMetricPoint]
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Color(red: 0.98, green: 0.985, blue: 1.0)
                 .ignoresSafeArea()
 

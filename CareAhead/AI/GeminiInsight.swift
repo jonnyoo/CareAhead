@@ -113,10 +113,10 @@ Recent history (last \(min(14, input.history.count)) days):
 
 Return ONLY valid JSON (no markdown, no backticks, no extra text). Schema:
 {
-  "introduction": ["1–2 short paragraphs"],
-  "heartRateDiscussion": ["1–2 short paragraphs"],
-  "breathingRateDiscussion": ["1–2 short paragraphs"],
-  "finalThoughts": ["1 short paragraph"],
+    "introduction": "1–2 short paragraphs",
+    "heartRateDiscussion": "1–2 short paragraphs",
+    "breathingRateDiscussion": "1–2 short paragraphs",
+    "finalThoughts": "1 short paragraph",
   "disclaimer": "Not medical advice."
 }
 
