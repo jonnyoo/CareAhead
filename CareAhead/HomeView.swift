@@ -63,9 +63,29 @@ struct HomeView: View {
                         
                         HStack(alignment: .bottom, spacing: 0) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Looking Good!")
-                                    .font(.system(size: 35, weight: .bold))
-                                    .foregroundColor(.white)
+                                HStack(alignment: .center, spacing: 10) {
+                                    Text("Looks Good!")
+                                        .font(.system(size: 35, weight: .bold))
+                                        .foregroundColor(.white)
+                                    
+                                    Spacer().frame(width: 30)
+                                    
+                                    
+                                    ZStack() {
+                                        RoundedRectangle(cornerRadius:7)
+                                            .fill(Color(red: 0.52, green: 0.91, blue: 0.58))
+                                            .frame(width: 70, height: 30
+                                            )
+                                        
+                                        Text("RS: 1")
+                                            .font(.system(size: 16, weight:.semibold))
+                                            .foregroundColor(Color(red: 0.2118, green: 0.4078, blue: 0.2431))
+
+                                    }
+                                    .offset(y: 2)
+                                    
+                                }
+                            
                                 
                                 Text("Your health trends align\nwith the past few\nweeks.")
                                     .font(.system(size: 18, weight: .regular))
