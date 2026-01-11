@@ -36,7 +36,7 @@ struct HomeView: View {
                     // Header
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Good Morning,")
+                            Text("Good Afternoon,")
                                 .font(.system(size: 24, weight: .medium))
                                 .foregroundColor(Color(red: 0.45, green: 0.45, blue: 0.65))
                             Text("Olivia")
@@ -227,6 +227,7 @@ struct HomeView: View {
                         .foregroundColor(Color(red: 0.35, green: 0.35, blue: 0.5))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
+                        .padding(.bottom, 80)
 
                 }
             }
