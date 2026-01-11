@@ -32,6 +32,15 @@ final class GeminiInsightViewModel: ObservableObject {
                 let client = GeminiClient(settings: settings)
                 
                 let text = try await client.generateText(prompt: prompt)
+
+                let parsed = GeminiInsightSections.parse(from: text)
+                    ?? GeminiInsightSections.fallback(from: text)
+
+                self.sections = parsed.normalized()
+
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    self.showText = true
+                }
                 
             }
         }

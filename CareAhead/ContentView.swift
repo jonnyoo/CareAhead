@@ -1,4 +1,4 @@
-import SwiftUI
+ brimport SwiftUI
 import SwiftData
 
 struct ContentView: View {
