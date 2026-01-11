@@ -61,7 +61,7 @@ struct TrendsView: View {
                     Rectangle()
                         .foregroundColor(.clear)
                         .frame(width: 366, height: 120)
-                        .background(Color(red: 0.365, green: 0.384, blue: 0.659))
+                        .background(riskCardColor)
                         .cornerRadius(20)
                         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 24)
@@ -72,7 +72,7 @@ struct TrendsView: View {
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.white)
                             
-                            Text("Low Risk")
+                            Text(riskCardTitle)
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
                         }
@@ -314,8 +314,50 @@ enum TrendAxis {
 struct HeartRateDetailView: View {
     @Environment(\.dismiss) var dismiss
 
+    @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
+
     let points: [TrendPoint<Int>]
     let xDomain: [String]
+
+    private var todayHeartRate: Int? {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        return vitalSigns.first(where: { calendar.isDate($0.timestamp, inSameDayAs: start) })?.heartRate
+    }
+
+    private var baselineStats: TrendStats? {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let values = vitalSigns
+            .filter { !calendar.isDate($0.timestamp, inSameDayAs: todayStart) }
+            .prefix(60)
+            .map { Double($0.heartRate) }
+        return TrendStats.compute(values)
+    }
+
+    private var trendPrompt: String {
+        let statsLine: String = {
+            guard let s = baselineStats else { return "Baseline: (insufficient history)" }
+            return "Baseline (last 30–60 days): avg \(Int(s.avg.rounded())) bpm, normal band \(Int(s.low.rounded()))–\(Int(s.high.rounded())) bpm"
+        }()
+
+        let todayLine = "Today HR: \(todayHeartRate.map(String.init) ?? "(no test)") bpm"
+        let recent = points.compactMap { $0.value }
+        let recentLine = recent.isEmpty ? "Recent (7 days): (no data)" : "Recent (7 days, oldest→newest): \(recent.map(String.init).joined(separator: ", "))"
+
+        return """
+You are a supportive assistant for a health-tracking app.
+Do not diagnose. Do not claim certainty. Keep it to ONE short paragraph (2–4 sentences) + end with: Not medical advice.
+
+Task: Describe the user's current heart-rate trend.
+Focus on how today's value compares to their baseline average and normal band, and whether the recent 7-day series looks up/down/stable.
+Include 1 numeric comparison (e.g. ~X bpm above avg) when possible.
+
+\(todayLine)
+\(statsLine)
+\(recentLine)
+"""
+    }
     
     var body: some View {
         NavigationView {
@@ -375,11 +417,11 @@ struct HeartRateDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Avg HR")
+                                Text("Today HR")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("81 BPM")
+                                Text("\(todayHeartRate.map { "\($0)" } ?? "—") BPM")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -394,11 +436,11 @@ struct HeartRateDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Your typical HR")
+                                Text("Avg HR")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("75 BPM")
+                                Text("\(baselineStats.map { "\(Int($0.avg.rounded()))" } ?? "—") BPM")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -422,14 +464,13 @@ struct HeartRateDetailView: View {
                             .background(Color.white)
                             .cornerRadius(20)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
-                        
-                        Text("Your heart rate has been stable over the past week, averaging 81 BPM. This is within the normal range for adults. Keep maintaining your healthy lifestyle!")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
-                            .multilineTextAlignment(.leading)
-                            .padding(.horizontal, 25)
-                            .padding(.top, 25)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            GeminiTrendParagraphView(prompt: trendPrompt)
+                        }
+                        .padding(.horizontal, 25)
+                        .padding(.top, 25)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
@@ -457,8 +498,39 @@ struct HeartRateDetailView: View {
 struct RiskLevelDetailView: View {
     @Environment(\.dismiss) var dismiss
 
+    @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
+
     let points: [TrendPoint<Double>]
     let xDomain: [String]
+
+    private var todayRisk: Double? {
+        points.first(where: { $0.dayLabel == "Today" })?.value
+    }
+
+    private var avgRisk: Double? {
+        let values = points.compactMap { $0.value }
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private var riskPrompt: String {
+        let todayLine = "Today risk: \(todayRisk.map { String(format: "%.1f", $0) } ?? "(no data)") / 10"
+        let avgLine = "Avg risk (7 days): \(avgRisk.map { String(format: "%.1f", $0) } ?? "(no data)") / 10"
+        let series = points.compactMap { $0.value }
+        let seriesLine = series.isEmpty ? "Recent (7 days): (no data)" : "Recent (7 days, oldest→newest): \(series.map { String(format: "%.1f", $0) }.joined(separator: ", "))"
+
+        return """
+You are a supportive assistant for a health-tracking app.
+Do not diagnose. Do not claim certainty. Keep it to ONE short paragraph (2–4 sentences) + end with: Not medical advice.
+
+Task: Describe the user's risk level trend.
+Focus on whether it's stable/up/down over the last week, and keep wording calm.
+
+\(todayLine)
+\(avgLine)
+\(seriesLine)
+"""
+    }
     
     var body: some View {
         NavigationView {
@@ -519,11 +591,11 @@ struct RiskLevelDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Avg Risk")
+                                Text("Today")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("2.0 / 10")
+                                Text("\(todayRisk.map { String(format: "%.1f", $0) } ?? "—") / 10")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -538,11 +610,11 @@ struct RiskLevelDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Status")
+                                Text("Avg")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("Low Risk")
+                                Text("\(avgRisk.map { String(format: "%.1f", $0) } ?? "—") / 10")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -567,13 +639,12 @@ struct RiskLevelDetailView: View {
                             .cornerRadius(20)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
-                        Text("Your health risk level has remained low and stable over the past week, averaging 2.0 out of 10. This is excellent! Your vital signs are within healthy ranges. Continue your current lifestyle and health practices!")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
-                            .multilineTextAlignment(.leading)
-                            .padding(.horizontal, 25)
-                            .padding(.top, 25)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        VStack(alignment: .leading, spacing: 10) {
+                            GeminiTrendParagraphView(prompt: riskPrompt)
+                        }
+                        .padding(.horizontal, 25)
+                        .padding(.top, 25)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
@@ -601,8 +672,50 @@ struct RiskLevelDetailView: View {
 struct BreathingRateDetailView: View {
     @Environment(\.dismiss) var dismiss
 
+    @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
+
     let points: [TrendPoint<Double>]
     let xDomain: [String]
+
+    private var todayBreathing: Int? {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        return vitalSigns.first(where: { calendar.isDate($0.timestamp, inSameDayAs: start) })?.breathingRate
+    }
+
+    private var baselineStats: TrendStats? {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let values = vitalSigns
+            .filter { !calendar.isDate($0.timestamp, inSameDayAs: todayStart) }
+            .prefix(60)
+            .map { Double($0.breathingRate) }
+        return TrendStats.compute(values)
+    }
+
+    private var trendPrompt: String {
+        let statsLine: String = {
+            guard let s = baselineStats else { return "Baseline: (insufficient history)" }
+            return "Baseline (last 30–60 days): avg \(Int(s.avg.rounded())) rpm, normal band \(Int(s.low.rounded()))–\(Int(s.high.rounded())) rpm"
+        }()
+
+        let todayLine = "Today BR: \(todayBreathing.map(String.init) ?? "(no test)") rpm"
+        let recent = points.compactMap { $0.value }.map { Int($0.rounded()) }
+        let recentLine = recent.isEmpty ? "Recent (7 days): (no data)" : "Recent (7 days, oldest→newest): \(recent.map(String.init).joined(separator: ", "))"
+
+        return """
+You are a supportive assistant for a health-tracking app.
+Do not diagnose. Do not claim certainty. Keep it to ONE short paragraph (2–4 sentences) + end with: Not medical advice.
+
+Task: Describe the user's current breathing-rate trend.
+Focus on how today's value compares to their baseline average and normal band, and whether the recent 7-day series looks up/down/stable.
+Include 1 numeric comparison (e.g. ~X rpm above avg) when possible.
+
+\(todayLine)
+\(statsLine)
+\(recentLine)
+"""
+    }
     
     var body: some View {
         NavigationView {
@@ -662,11 +775,11 @@ struct BreathingRateDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Avg BR")
+                                Text("Today BR")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("16 RPM")
+                                Text("\(todayBreathing.map { "\($0)" } ?? "—") RPM")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -681,11 +794,11 @@ struct BreathingRateDetailView: View {
                                 .cornerRadius(20)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Your typical BR")
+                                Text("Avg BR")
                                     .font(.system(size: 17, weight: .medium))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                                 
-                                Text("15 RPM")
+                                Text("\(baselineStats.map { "\(Int($0.avg.rounded()))" } ?? "—") RPM")
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
                             }
@@ -710,13 +823,12 @@ struct BreathingRateDetailView: View {
                             .cornerRadius(20)
                             .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
                         
-                        Text("Your breathing rate has been consistent over the past week, averaging 16 RPM. This is within the normal range for adults at rest. Keep up your good breathing habits!")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
-                            .multilineTextAlignment(.leading)
-                            .padding(.horizontal, 25)
-                            .padding(.top, 25)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        VStack(alignment: .leading, spacing: 10) {
+                            GeminiTrendParagraphView(prompt: trendPrompt)
+                        }
+                        .padding(.horizontal, 25)
+                        .padding(.top, 25)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
@@ -898,17 +1010,140 @@ struct TrendPoint<Value>: Identifiable {
 // MARK: - SwiftData-backed series
 
 private extension TrendsView {
+    struct TrendStats {
+        let avg: Double
+        let low: Double
+        let high: Double
+        let stdDev: Double
+
+        static func compute(_ values: [Double]) -> TrendStats? {
+            guard !values.isEmpty else { return nil }
+            let avg = values.reduce(0, +) / Double(values.count)
+            let std = stdDev(values, mean: avg)
+            let band = normalBand(values)
+            return TrendStats(avg: avg, low: band.0, high: band.1, stdDev: std)
+        }
+
+        private static func stdDev(_ values: [Double], mean: Double) -> Double {
+            guard values.count >= 2 else { return 0 }
+            let variance = values
+                .map { ($0 - mean) * ($0 - mean) }
+                .reduce(0, +) / Double(values.count - 1)
+            return sqrt(variance)
+        }
+
+        private static func normalBand(_ values: [Double]) -> (Double, Double) {
+            let sorted = values.sorted()
+            if sorted.count >= 10 {
+                return (percentile(sorted, p: 0.15), percentile(sorted, p: 0.85))
+            }
+            return (sorted.first ?? 0, sorted.last ?? 0)
+        }
+
+        private static func percentile(_ sorted: [Double], p: Double) -> Double {
+            guard !sorted.isEmpty else { return 0 }
+            let clamped = min(1, max(0, p))
+            let idx = (Double(sorted.count - 1) * clamped)
+            let lower = Int(floor(idx))
+            let upper = Int(ceil(idx))
+            if lower == upper { return sorted[lower] }
+            let weight = idx - Double(lower)
+            return sorted[lower] * (1 - weight) + sorted[upper] * weight
+        }
+    }
+
+    var todayVital: VitalSign? {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        return vitalSigns.first(where: { calendar.isDate($0.timestamp, inSameDayAs: start) })
+    }
+
+    var baselineHeartRateStats: TrendStats? {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let values = vitalSigns
+            .filter { !calendar.isDate($0.timestamp, inSameDayAs: todayStart) }
+            .prefix(60)
+            .map { Double($0.heartRate) }
+        return TrendStats.compute(values)
+    }
+
+    var baselineBreathingStats: TrendStats? {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let values = vitalSigns
+            .filter { !calendar.isDate($0.timestamp, inSameDayAs: todayStart) }
+            .prefix(60)
+            .map { Double($0.breathingRate) }
+        return TrendStats.compute(values)
+    }
+
+    func penalty(value: Double, low: Double, high: Double, scale: Double) -> Double {
+        if value < low {
+            return min(99, ((low - value) / max(1, scale)) * 35)
+        }
+        if value > high {
+            return min(99, ((value - high) / max(1, scale)) * 35)
+        }
+        return 6
+    }
+
+    var riskScore: Int? {
+        guard let today = todayVital,
+              let hr = baselineHeartRateStats,
+              let br = baselineBreathingStats
+        else { return nil }
+
+        let hrPenalty = penalty(value: Double(today.heartRate), low: hr.low, high: hr.high, scale: max(6, hr.stdDev))
+        let brPenalty = penalty(value: Double(today.breathingRate), low: br.low, high: br.high, scale: max(2, br.stdDev))
+        let combined = 1 + Int((hrPenalty * 0.6 + brPenalty * 0.4).rounded())
+        return min(100, max(1, combined))
+    }
+
+    var riskCardTitle: String {
+        guard let score = riskScore else { return "No test" }
+        switch score {
+        case 1...25: return "Low Risk"
+        case 26...60: return "Moderate"
+        default: return "Elevated"
+        }
+    }
+
+    var riskCardColor: Color {
+        guard let score = riskScore else { return Color(red: 0.365, green: 0.384, blue: 0.659).opacity(0.7) }
+        switch score {
+        case 1...25:
+            return Color(red: 0.28, green: 0.72, blue: 0.55)
+        case 26...60:
+            return Color(red: 0.93, green: 0.73, blue: 0.18)
+        default:
+            return Color(red: 0.92, green: 0.38, blue: 0.42)
+        }
+    }
+
     var xDomain: [String] {
         TrendAxis.lastNDays(count: 7).map { $0.label }
     }
 
     var riskLevelPoints: [TrendPoint<Double>] {
         let days = TrendAxis.lastNDays(count: 7)
-        // Hardcoded sample risk level data (0-10 scale, where 0 is low risk and 10 is high risk)
-        let sampleRisk: [Double] = [2.1, 1.8, 2.5, 2.0, 1.9, 2.2, 1.7]
-        return days.enumerated().map { index, day in
-            let value = index < sampleRisk.count ? sampleRisk[index] : nil
-            return TrendPoint(dayLabel: day.label, value: value)
+        guard let hr = baselineHeartRateStats, let br = baselineBreathingStats else {
+            return days.map { TrendPoint(dayLabel: $0.label, value: nil) }
+        }
+
+        let byDateKey = Self.latestVitalSignByDateKey(vitalSigns)
+        return days.map { day in
+            let key = Self.dateKey(day.dayStart)
+            guard let vital = byDateKey[key] else {
+                return TrendPoint(dayLabel: day.label, value: nil)
+            }
+
+            let hrPenalty = penalty(value: Double(vital.heartRate), low: hr.low, high: hr.high, scale: max(6, hr.stdDev))
+            let brPenalty = penalty(value: Double(vital.breathingRate), low: br.low, high: br.high, scale: max(2, br.stdDev))
+            let combined = 1 + Int((hrPenalty * 0.6 + brPenalty * 0.4).rounded())
+            let score100 = min(100, max(1, combined))
+            let score10 = Double(score100) / 10.0
+            return TrendPoint(dayLabel: day.label, value: score10)
         }
     }
 
