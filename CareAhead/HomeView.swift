@@ -212,7 +212,13 @@ struct HomeView: View {
                         .padding(.horizontal)
                     }
                     
-                    Spacer(minLength: 100)
+                    
+                    Text("CareAhead is not a replacement for medical professionals, but rather a basic way to monitor your own health.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(Color(red: 0.35, green: 0.35, blue: 0.5))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
                 }
             }
         }
@@ -260,6 +266,8 @@ struct HealthMetricCard: View {
                 .padding(.trailing, 28)
                 .padding(.bottom, 28)
             }
+            
+
         }
     }
 }
