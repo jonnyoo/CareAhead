@@ -12,6 +12,10 @@ struct PresageView: View {
     // 1. Create an observer for the SDK shared instance
     @ObservedObject var sdk = SmartSpectraSwiftSDK.shared
     
+    // UI State for Real-Time Readings
+    @State private var currentHeartRate: Double = 0.0
+    @State private var currentBreathingRate: Double = 0.0
+    
     // Optional: toggle for the Face Mesh debug overlay
     @State private var isFaceMeshEnabled = false
     
@@ -20,83 +24,165 @@ struct PresageView: View {
         let apiKey = "GeiwZOZNRG42wRpGRfatc7bF1J0dYzVs6EQXEl9J"
         sdk.setApiKey(apiKey)
         
-        // MARK: - Advanced Configuration (Uncomment to use)
-        
-        // 1. Set the Mode (Continuous = real-time, Spot = fixed window)
+        // MARK: - Advanced Configuration
         // sdk.setSmartSpectraMode(.continuous)
-        // sdk.setSmartSpectraMode(.spot)
-        
-        // 2. Set Measurement Duration (20.0 - 120.0 seconds)
         // sdk.setMeasurementDuration(30.0)
-        
-        // 3. Camera Position (Front is recommended for face detection)
         // sdk.setCameraPosition(.front)
-        
-        // 4. Recording Delay (Countdown before recording starts)
-        // sdk.setRecordingDelay(3)
-        
-        // 5. UI Controls (Show/Hide default UI buttons)
-        // sdk.showControlsInScreeningView(true)
-        
-        // 6. Performance Optimization (Disable image output if running in background)
-        // sdk.setImageOutputEnabled(true)
     }
     
     var body: some View {
         ZStack {
-            // MARK: - Main Camera View
-            // This is the complete UI solution provided by the SDK
-            SmartSpectraView()
+            // MARK: - 1. Camera Layer (Safe for Canvas)
+            #if targetEnvironment(simulator)
+                // Fallback for Xcode Canvas / Simulator
+                MockSmartSpectraView()
+            #else
+                // Real SDK for Physical Device
+                SmartSpectraView()
+            #endif
             
-            // MARK: - Face Mesh Overlay (Debug/Advanced)
-            // Visualizes the face landmarks used for measurement
-            if isFaceMeshEnabled, let edgeMetrics = sdk.edgeMetrics, edgeMetrics.hasFace, !edgeMetrics.face.landmarks.isEmpty {
-                if let latestLandmarks = edgeMetrics.face.landmarks.last {
-                    GeometryReader { geometry in
-                        ZStack {
-                            ForEach(Array(latestLandmarks.value.enumerated()), id: \.offset) { index, landmark in
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 3, height: 3)
-                                    // Map coordinates to the screen (1280x1280 is the normalized space)
-                                    .position(
-                                        x: CGFloat(landmark.x) * geometry.size.width / 1280.0,
-                                        y: CGFloat(landmark.y) * geometry.size.height / 1280.0
-                                    )
-                            }
-                        }
-                    }
-                    .frame(width: 400, height: 400) // Adjust frame as needed
-                }
+            // MARK: - 2. Face Mesh Overlay (Debug)
+            if isFaceMeshEnabled {
+                FaceMeshLayer(sdk: sdk)
             }
             
-            // Toggle button for Face Mesh
+            // MARK: - 3. UI Overlay (Vitals Display)
             VStack {
                 Spacer()
-                Button("Toggle Face Mesh") {
-                    isFaceMeshEnabled.toggle()
+                
+                // Heart Rate Card
+                HStack(spacing: 20) {
+                    VitalsCard(
+                        title: "HEART RATE",
+                        value: "\(Int(currentHeartRate))",
+                        unit: "BPM",
+                        icon: "heart.fill",
+                        color: .red
+                    )
+                    
+                    VitalsCard(
+                        title: "BREATHING",
+                        value: "\(Int(currentBreathingRate))",
+                        unit: "RPM",
+                        icon: "wind",
+                        color: .blue
+                    )
                 }
-                .padding()
-                .background(.ultraThinMaterial)
-                .cornerRadius(10)
-                .padding(.bottom, 50)
+                .padding(.bottom, 20)
+                
+                // Toggle Button
+                Button(action: { isFaceMeshEnabled.toggle() }) {
+                    Text(isFaceMeshEnabled ? "Hide Mesh" : "Show Mesh")
+                        .font(.caption)
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(8)
+                }
+                .padding(.bottom, 40)
             }
         }
-        // MARK: - Data Access
-        // Monitor the metrics buffer for real-time updates
-        // Updated for iOS 17+
+        // MARK: - Data Connection
+        // Connects the SDK data stream to our UI variables
         .onChange(of: sdk.metricsBuffer) { oldValue, newBuffer in
             if let metrics = newBuffer {
-                // Access Pulse Data
-                metrics.pulse.rate.forEach { measurement in
-                    print("Pulse: \(measurement.value) BPM at \(measurement.time)s")
+                // Update Heart Rate (Get last known value)
+                if let lastPulse = metrics.pulse.rate.last {
+                    currentHeartRate = lastPulse.value
                 }
-                
-                // Access Breathing Data
-                metrics.breathing.rate.forEach { rate in
-                    print("Breathing: \(rate.value) RPM at \(rate.time)s")
+                // Update Breathing Rate
+                if let lastBreath = metrics.breathing.rate.last {
+                    currentBreathingRate = lastBreath.value
                 }
             }
         }
     }
+}
+
+// MARK: - Helper Views
+
+// A simulated view so you can design in Canvas without crashing
+struct MockSmartSpectraView: View {
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack {
+                Image(systemName: "face.dashed")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 200)
+                    .foregroundColor(.gray.opacity(0.5))
+                Text("Simulating Camera...")
+                    .foregroundColor(.gray)
+                    .padding(.top)
+            }
+        }
+    }
+}
+
+// Reusable Card Component for Vitals
+struct VitalsCard: View {
+    let title: String
+    let value: String
+    let unit: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray)
+            }
+            
+            HStack(alignment: .bottom) {
+                Text(value)
+                    .font(.system(size: 32, weight: .bold))
+                Text(unit)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 6)
+            }
+        }
+        .padding()
+        .background(Color(UIColor.systemBackground).opacity(0.9))
+        .cornerRadius(12)
+        .shadow(radius: 5)
+    }
+}
+
+// Extracted Face Mesh Logic to keep main view clean
+struct FaceMeshLayer: View {
+    @ObservedObject var sdk: SmartSpectraSwiftSDK
+    
+    var body: some View {
+        if let edgeMetrics = sdk.edgeMetrics,
+           edgeMetrics.hasFace,
+           !edgeMetrics.face.landmarks.isEmpty,
+           let latestLandmarks = edgeMetrics.face.landmarks.last {
+            
+            GeometryReader { geometry in
+                ZStack {
+                    ForEach(Array(latestLandmarks.value.enumerated()), id: \.offset) { index, landmark in
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 3, height: 3)
+                            .position(
+                                x: CGFloat(landmark.x) * geometry.size.width / 1280.0,
+                                y: CGFloat(landmark.y) * geometry.size.height / 1280.0
+                            )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Preview Logic
+#Preview {
+    PresageView()
 }
