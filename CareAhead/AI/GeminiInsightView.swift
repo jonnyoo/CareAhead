@@ -140,16 +140,28 @@ struct GeminiInsightSections: Decodable {
             s.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
+        func looksLikeJSON(_ s: String) -> Bool {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if t.hasPrefix("{") || t.hasPrefix("[") { return true }
+            if t.contains("\"introduction\"") || t.contains("\"heartRateDiscussion\"") { return true }
+            return false
+        }
+
         let intro = clean(introduction)
         let hr = clean(heartRateDiscussion)
         let br = clean(breathingRateDiscussion)
         let final = clean(finalThoughts)
 
+        let safeIntro = looksLikeJSON(intro) ? "" : intro
+        let safeHR = looksLikeJSON(hr) ? "" : hr
+        let safeBR = looksLikeJSON(br) ? "" : br
+        let safeFinal = looksLikeJSON(final) ? "" : final
+
         return GeminiInsightSections(
-            introduction: intro.isEmpty ? "Here’s a quick, baseline-aware read of today’s scan." : intro,
-            heartRateDiscussion: hr.isEmpty ? "Your heart rate trace looks fairly steady overall. Small rises and dips are common during a camera scan (posture, breathing, tiny movements, lighting)." : hr,
-            breathingRateDiscussion: br.isEmpty ? "Breathing rate estimates can vary more than heart rate in short clips. What matters most is the overall level and whether the trace stabilizes." : br,
-            finalThoughts: final.isEmpty ? "For the cleanest comparison, run tomorrow’s test at a similar time, sitting still, with consistent lighting." : final,
+            introduction: safeIntro.isEmpty ? "Here’s a quick, baseline-aware read of today’s scan." : safeIntro,
+            heartRateDiscussion: safeHR.isEmpty ? "Compared to your recent baseline, today’s heart rate looks broadly in-line unless you’re seeing a consistent shift above or below your average." : safeHR,
+            breathingRateDiscussion: safeBR.isEmpty ? "Compared to your baseline, today’s breathing rate looks broadly in-line unless it’s consistently above/below your usual range." : safeBR,
+            finalThoughts: safeFinal.isEmpty ? "For the cleanest comparison, run tomorrow’s test at a similar time, sitting still, with consistent lighting." : safeFinal,
             disclaimer: (disclaimer?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? disclaimer : "Not medical advice."
         )
     }
@@ -170,7 +182,7 @@ struct GeminiInsightSections: Decodable {
             return captured
         }
 
-        let intro = extract("introduction") ?? raw
+        let intro = extract("introduction") ?? ""
         let hr = extract("heartRateDiscussion") ?? ""
         let br = extract("breathingRateDiscussion") ?? ""
         let final = extract("finalThoughts") ?? ""

@@ -122,6 +122,14 @@ Return ONLY valid JSON (no markdown, no backticks, no extra text). Schema:
 
 Tone: calm, friendly, and specific to their baseline (use the averages/ranges above).
 All fields must be present and non-empty. Do NOT put the disclaimer inside finalThoughts.
+
+Important: The charts in the UI show a live trace from the scan. Do not over-interpret short-term wiggles.
+Base the Heart Rate and Breathing Rate discussions mainly on how today's single value compares to:
+- the user's average ("Avg")
+- the user's observed range
+- recent history direction (use the recent history list, if it suggests up/down/stable)
+
+Include 1–2 specific numeric comparisons (e.g., "about X bpm above your average") and whether it's within their recent range.
 """
     }
 }
