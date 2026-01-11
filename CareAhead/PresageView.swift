@@ -187,25 +187,23 @@ struct PresageView: View {
         // Stop capture and transition to insights
         processor.stopRecording()
         processor.stopProcessing()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Persist today's measurement (so Trends shows Today once a test is done).
-            if !didSaveVitalSign,
-               capturedHeartRate > 0,
-               capturedBreathingRate > 0 {
-                let vitalSign = VitalSign(
-                    timestamp: Date(),
-                    heartRate: Int(capturedHeartRate.rounded()),
-                    breathingRate: Int(capturedBreathingRate.rounded())
-                )
-                modelContext.insert(vitalSign)
-                try? modelContext.save()
-                didSaveVitalSign = true
-            }
 
-            isScanning = false
-            showingInsight = true
+        // Persist today's measurement (so Trends shows Today once a test is done).
+        if !didSaveVitalSign,
+           capturedHeartRate > 0,
+           capturedBreathingRate > 0 {
+            let vitalSign = VitalSign(
+                timestamp: Date(),
+                heartRate: Int(capturedHeartRate.rounded()),
+                breathingRate: Int(capturedBreathingRate.rounded())
+            )
+            modelContext.insert(vitalSign)
+            try? modelContext.save()
+            didSaveVitalSign = true
         }
+
+        isScanning = false
+        showingInsight = true
     }
     
     func resetScan() {

@@ -8,24 +8,7 @@ final class GeminiInsightViewModel: ObservableObject {
     @Published var errorText: String = ""
     @Published var isBusy: Bool = false
 
-    @Published var settings: GeminiSettings = .default
-    @Published var isShowingSettings: Bool = false
-
-    func loadSettings() {
-        do {
-            settings = try GeminiSettingsStore.load()
-        } catch {
-            settings = .default
-        }
-    }
-
-    func saveSettings() {
-        do {
-            try GeminiSettingsStore.save(settings)
-        } catch {
-            errorText = error.localizedDescription
-        }
-    }
+    let settings: GeminiSettings = .default
 
     func generate(today: VitalSign, history: [VitalSign]) {
         Task {
@@ -55,8 +38,6 @@ final class GeminiInsightViewModel: ObservableObject {
 }
 
 struct GeminiInsightView: View {
-    @Environment(\.modelContext) private var modelContext
-
     // Get enough data for comparisons
     @Query(sort: \VitalSign.timestamp, order: .reverse) private var vitalSigns: [VitalSign]
 
@@ -67,19 +48,22 @@ struct GeminiInsightView: View {
     @State private var didAutoGenerate: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
+
                 Text("Today’s Insight")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color(red: 0.17, green: 0.18, blue: 0.35))
 
                 Spacer()
 
-                Button("Settings") {
-                    model.isShowingSettings = true
+                if model.isBusy {
+                    ProgressView()
+                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
                 }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
             }
 
             let todayVital = latestTodayVitalSign
@@ -87,12 +71,17 @@ struct GeminiInsightView: View {
                 Text("Run today’s video test to get an insight.")
                     .foregroundStyle(.secondary)
             } else {
-                Button(model.isBusy ? "Generating…" : "Generate Insight") {
-                    guard let todayVital else { return }
-                    model.generate(today: todayVital, history: historyForComparison)
+                if let todayVital {
+                    vitalsRow(todayVital)
+                        .padding(.top, 2)
+
+                    Button(model.isBusy ? "Generating…" : (model.insightText.isEmpty ? "Generate Insight" : "Regenerate")) {
+                        model.generate(today: todayVital, history: historyForComparison)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    .disabled(model.isBusy)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isBusy)
             }
 
             if !model.errorText.isEmpty {
@@ -101,34 +90,57 @@ struct GeminiInsightView: View {
                     .font(.system(size: 14))
             }
 
+            if model.isBusy && model.insightText.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Generating insight…")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.8))
+                    ProgressView()
+                        .tint(Color(red: 0.45, green: 0.48, blue: 0.75))
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
             if !model.insightText.isEmpty {
-                Text(model.insightText)
-                    .font(.system(.body, design: .default))
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Group {
+                    if let attributed = try? AttributedString(markdown: model.insightText) {
+                        Text(attributed)
+                    } else {
+                        Text(model.insightText)
+                    }
+                }
+                .textSelection(.enabled)
+                .font(.system(.body, design: .rounded))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.white,
+                    Color(red: 0.98, green: 0.98, blue: 1.0)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: Color(red: 0.88, green: 0.89, blue: 1).opacity(0.45), radius: 8, x: 0, y: 2)
         .onAppear {
-            self.model.loadSettings()
-
             if self.autoGenerateOnAppear,
                !self.didAutoGenerate,
-               self.model.settings.isValid,
                let todayVital = latestTodayVitalSign {
                 self.didAutoGenerate = true
                 self.model.generate(today: todayVital, history: self.historyForComparison)
             }
-        }
-        .sheet(isPresented: $model.isShowingSettings) {
-            GeminiSettingsSheet(settings: $model.settings, onSave: {
-                self.model.saveSettings()
-            })
         }
     }
 
@@ -147,40 +159,42 @@ struct GeminiInsightView: View {
             .prefix(60) // keep a bit extra; prompt builder will trim
             .map { $0 }
     }
-}
 
-private struct GeminiSettingsSheet: View {
-    @Environment(\.dismiss) var dismiss
+    private func vitalsRow(_ vital: VitalSign) -> some View {
+        HStack(spacing: 10) {
+            chip(title: "HR", value: "\(vital.heartRate)", unit: "bpm")
+            chip(title: "BR", value: "\(vital.breathingRate)", unit: "rpm")
 
-    @Binding var settings: GeminiSettings
-    let onSave: () -> Void
-
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Gemini API")) {
-                    SecureField("API Key", text: $settings.apiKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Text("Use a key from Google AI Studio. This key is stored in Keychain on-device.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            if let sleep = vital.sleepHours {
+                chip(title: "Sleep", value: String(format: "%.1f", sleep), unit: "h")
             }
-            .navigationTitle("Insight Settings")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        onSave()
-                        dismiss()
-                    }
-                }
+
+            Spacer()
+        }
+    }
+
+    private func chip(title: String, value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.65))
+            HStack(spacing: 4) {
+                Text(value)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35))
+                Text(unit)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.17, green: 0.18, blue: 0.35).opacity(0.55))
             }
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(Color.white.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(red: 0.45, green: 0.48, blue: 0.75).opacity(0.18), lineWidth: 1)
+        )
     }
 }
 

@@ -4,25 +4,55 @@ struct GeminiInsightScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color("backgroundColor")
-                    .ignoresSafeArea()
+        ZStack {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(red: 0.44, green: 0.86, blue: 0.7).opacity(0.22), location: 0.0),
+                    .init(color: Color(red: 0.70, green: 0.73, blue: 1.0).opacity(0.20), location: 0.45),
+                    .init(color: Color("backgroundColor"), location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-                ScrollView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                        .padding(.top, 18)
+
                     GeminiInsightView(autoGenerateOnAppear: true)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 24)
 
                     Spacer(minLength: 40)
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 44)
             }
-            .navigationTitle("Insight")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
-                }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Insight")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(Color(red: 0.14, green: 0.15, blue: 0.28))
+                Text("Your vitals, explained in plain language")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(red: 0.14, green: 0.15, blue: 0.28).opacity(0.65))
+            }
+
+            Spacer()
+
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.75))
+                    .padding(10)
+                    .background(.thinMaterial)
+                    .clipShape(Circle())
             }
         }
     }
