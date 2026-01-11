@@ -13,4 +13,4 @@ xcuserdata/
 .build/
 
 # Secrets (local only)
-Config.xcconfig
+Secrets.xcconfig

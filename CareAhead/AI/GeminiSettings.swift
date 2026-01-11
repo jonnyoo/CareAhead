@@ -7,6 +7,10 @@ struct GeminiSettings: Equatable {
         !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    // NOTE: Hardcoded key (per request). Consider using Keychain/xcconfig for production.
+    static let `default` = GeminiSettings(apiKey: "AIzaSyDgG4MMPHNO7UKQeeHaErPbWwqD9QZuyZM")
+}
+
     // MARK: - Persistence & Loading Logic
     
     private static let service = "CareAhead.Gemini"
@@ -16,25 +20,22 @@ struct GeminiSettings: Equatable {
 
     /// Loads the settings from Info.plist (secure) or Keychain (legacy)
     static func load() throws -> GeminiSettings {
-        // 1. Read from the secure Info.plist entry (Best Practice)
-        if let plistKey = Bundle.main.object(forInfoDictionaryKey: "GeminiApiKey") as? String, !plistKey.isEmpty {
-            
-            // Check for common setup error (seeing variable name instead of value)
-            if plistKey.contains("GEMINI_API_KEY") {
-                print("⚠️ Warning: Config file not linked properly. Seeing variable name instead of value.")
-            }
-            
-            return GeminiSettings(apiKey: plistKey)
+        var apiKey = try KeychainStore.getString(service: service, account: Account.apiKey) ?? ""
+
+        // Dev convenience: allow injecting the key via generated Info.plist from Secrets.xcconfig.
+        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let injected = Bundle.main.object(forInfoDictionaryKey: InfoPlistKey.apiKey) as? String,
+           !injected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            apiKey = injected
+            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
         }
 
-        // 2. Fallback to Keychain (Legacy support)
-        if let key = try? KeychainStore.getString(service: service, account: Account.apiKey) {
-            return GeminiSettings(apiKey: key)
+        if apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            apiKey = GeminiSettings.default.apiKey
+            try? KeychainStore.setString(apiKey, service: service, account: Account.apiKey)
         }
-        
-        // 3. Not found
-        print("❌ Error: API Key not found in Info.plist or Keychain")
-        return GeminiSettings(apiKey: "")
+
+        return GeminiSettings(apiKey: apiKey)
     }
 
     static func save(_ settings: GeminiSettings) throws {
